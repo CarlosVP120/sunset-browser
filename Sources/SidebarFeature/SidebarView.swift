@@ -7,6 +7,8 @@ public struct SidebarView: View {
     let browser: Browser
     /// Lo que la app añade arriba a la derecha (los botones de extensiones).
     let accessory: AnyView?
+    /// Botón de abajo a la izquierda (la Librería); si no hay, el archivo de pestañas cerradas.
+    let libraryButton: AnyView?
     /// Hacia dónde se desliza el contenido al cambiar de espacio.
     @State private var spaceTransitionEdge: Edge = .trailing
     @State private var isScrolled = false
@@ -15,9 +17,10 @@ public struct SidebarView: View {
     private static let topID = "sidebar-top"
     private static let scrollSpace = "sidebar-scroll"
 
-    public init(browser: Browser, accessory: AnyView? = nil) {
+    public init(browser: Browser, accessory: AnyView? = nil, libraryButton: AnyView? = nil) {
         self.browser = browser
         self.accessory = accessory
+        self.libraryButton = libraryButton
     }
 
     public var body: some View {
@@ -85,7 +88,7 @@ public struct SidebarView: View {
                 }
             }
 
-            BottomBar(browser: browser)
+            BottomBar(browser: browser, libraryButton: libraryButton)
         }
         .padding(.horizontal, 8)
         .environment(\.colorScheme, theme.isDark ? .dark : .light)
@@ -519,17 +522,22 @@ private struct CopyLinkButton: View {
 
 private struct BottomBar: View {
     let browser: Browser
+    let libraryButton: AnyView?
     @State private var showsArchive = false
     @Environment(\.spaceTheme) private var theme
 
     var body: some View {
         HStack(spacing: 4) {
-            Button { showsArchive.toggle() } label: {
-                Image(systemName: "archivebox")
-            }
-            .tooltip("Pestañas cerradas", shortcut: "⇧⌘T")
-            .popover(isPresented: $showsArchive, arrowEdge: .top) {
-                ArchiveList(browser: browser) { showsArchive = false }
+            if let libraryButton {
+                libraryButton
+            } else {
+                Button { showsArchive.toggle() } label: {
+                    Image(systemName: "archivebox")
+                }
+                .tooltip("Pestañas cerradas", shortcut: "⇧⌘T")
+                .popover(isPresented: $showsArchive, arrowEdge: .top) {
+                    ArchiveList(browser: browser) { showsArchive = false }
+                }
             }
 
             Spacer()

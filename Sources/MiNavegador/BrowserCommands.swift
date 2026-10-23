@@ -56,6 +56,12 @@ struct BrowserCommands: Commands {
                 withAnimation(.easeInOut(duration: 0.2)) { browser.showsSidebar.toggle() }
             }
             .keyboardShortcut("s")
+            Button(browser.showsLibrary ? "Cerrar la Librería" : "Abrir la Librería") {
+                if browser.showsLibrary { browser.showsLibrary = false } else { browser.perform(.showLibrary) }
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Descargas") { browser.perform(.showDownloads) }
+                .keyboardShortcut("l", modifiers: [.command, .option])
             Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
                 browser.showsToolbar.toggle()
             }

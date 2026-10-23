@@ -56,28 +56,36 @@ public struct PageEdgeGlow: View {
             opacity *= 1 - min(1, max(0, finishing - Self.finishDuration * 0.8) / Self.fadeDuration)
         }
 
-        let color = Color(theme.title)
-        // Por fuera del borde de la página (inset negativo): sobre el marco de la ventana.
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).inset(by: -1.5)
+        // Dos tonos para que se vea sobre cualquier página: núcleo blanco y contorno oscuro.
+        let core = Color.white
+        let outline = Color.black.opacity(0.55)
+        // Sobre el borde de la página, por dentro: así siempre queda encima de su contenido.
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).inset(by: 1.5)
 
         return ZStack {
-            // Rastro tenue de todo el borde.
-            shape.stroke(color.opacity(0.12), lineWidth: 1)
-            // El haz: tramos cada vez más brillantes hacia la cabeza.
+            // Rastro tenue de todo el borde (también en dos tonos).
+            shape.stroke(outline.opacity(0.35), lineWidth: 3)
+            shape.stroke(core.opacity(0.35), lineWidth: 1)
+            // El haz: tramos cada vez más intensos hacia la cabeza, contorno debajo y núcleo encima.
             ForEach(0..<Self.slices, id: \.self) { slice in
                 let sliceLength = length / Double(Self.slices)
                 let end = head - length + sliceLength * Double(slice + 1)
-                let strength = pow(Double(slice + 1) / Double(Self.slices), 2.2)
+                let strength = pow(Double(slice + 1) / Double(Self.slices), 1.8)
                 ForEach(Self.segments(from: end - sliceLength, to: end), id: \.self) { segment in
-                    shape.trim(from: segment.lowerBound, to: segment.upperBound)
-                        .stroke(color.opacity(0.9 * strength), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    let piece = shape.trim(from: segment.lowerBound, to: segment.upperBound)
+                    ZStack {
+                        piece.stroke(outline.opacity(strength), style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
+                        piece.stroke(core.opacity(strength), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    }
                 }
             }
-            // Un destello pequeño en la cabeza.
-            ForEach(Self.segments(from: head - 0.012, to: head), id: \.self) { segment in
-                shape.trim(from: segment.lowerBound, to: segment.upperBound)
-                    .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .blur(radius: 1.5)
+            // La cabeza: un punto más ancho y nítido.
+            ForEach(Self.segments(from: head - 0.006, to: head), id: \.self) { segment in
+                let piece = shape.trim(from: segment.lowerBound, to: segment.upperBound)
+                ZStack {
+                    piece.stroke(outline, style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
+                    piece.stroke(core, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                }
             }
             .opacity(finishedAt == nil ? 1 : 0)
         }

@@ -13,6 +13,9 @@ public final class Browser {
     public private(set) var archive: [ArchivedTab] = []
     /// Perfiles además del predeterminado.
     public private(set) var profiles: [Profile] = []
+    /// La Librería (descargas, media, espacios, archivo) en lugar de la barra lateral.
+    public var showsLibrary = false
+    public var librarySection: LibrarySection = .downloads
     /// Pestaña que se está renombrando en la barra lateral.
     public var renamingTabID: BrowserTab.ID?
     /// Ventana con la lista de atajos de teclado.

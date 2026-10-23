@@ -20,7 +20,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     case newFolder, collapseAllFolders, expandAllFolders, togglePinnedSection
     case newSpace, renameSpace, editTheme, manageSpaces
     // Ventana
-    case toggleSidebar, toggleToolbar, showShortcuts, importFromArc
+    case toggleSidebar, toggleToolbar, showLibrary, showDownloads, showShortcuts, importFromArc
 
     public var title: String {
         switch self {
@@ -64,6 +64,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "Gestionar espacios"
         case .toggleSidebar: "Mostrar u ocultar barra lateral"
         case .toggleToolbar: "Mostrar u ocultar barra de herramientas"
+        case .showLibrary: "Abrir la Librería"
+        case .showDownloads: "Ver descargas"
         case .showShortcuts: "Atajos de teclado"
         case .importFromArc: "Volver a importar desde Arc"
         }
@@ -110,6 +112,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "square.stack.3d.up"
         case .toggleSidebar: "sidebar.left"
         case .toggleToolbar: "menubar.rectangle"
+        case .showLibrary: "books.vertical"
+        case .showDownloads: "arrow.down.circle"
         case .showShortcuts: "keyboard"
         case .importFromArc: "square.and.arrow.down"
         }
@@ -133,6 +137,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .newFolder: "⌥⌘N"
         case .toggleSidebar: "⌘S"
         case .toggleToolbar: "⌥⌘T"
+        case .showLibrary: "⇧⌘L"
+        case .showDownloads: "⌥⌘L"
         default: nil
         }
     }
@@ -180,6 +186,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "manage spaces"
         case .toggleSidebar: "toggle show hide sidebar ocultar"
         case .toggleToolbar: "toggle toolbar url bar"
+        case .showLibrary: "library libreria media archived tabs"
+        case .showDownloads: "downloads descargas archivos"
         case .showShortcuts: "keyboard shortcuts atajos teclas"
         case .importFromArc: "arc import"
         }
@@ -294,6 +302,13 @@ extension Browser {
 
         case .toggleSidebar: showsSidebar.toggle()
         case .toggleToolbar: showsToolbar.toggle()
+        case .showLibrary:
+            showsSidebar = true
+            showsLibrary = true
+        case .showDownloads:
+            librarySection = .downloads
+            showsSidebar = true
+            showsLibrary = true
         case .showShortcuts: showsShortcuts = true
         case .importFromArc: try? reimportFromArc()
         }

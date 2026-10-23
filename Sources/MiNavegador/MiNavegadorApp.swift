@@ -31,6 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         browser = Browser(engine: engine)
         super.init()
 
+        engine.downloads.onFinish = { [browser] record in
+            browser.showToast("Descargado: \(record.filename)", symbol: "arrow.down.circle.fill")
+        }
+
         // Las extensiones ven las pestañas del navegador y pueden abrir nuevas.
         if #available(macOS 15.4, *) {
             let browser = browser

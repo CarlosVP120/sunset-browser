@@ -7,6 +7,9 @@ public final class WebKitEngine: WebEngine {
     /// `WebExtensionsHost` (macOS 15.4+), guardado sin tipo para poder compilar en versiones anteriores.
     private let extensionsHost: AnyObject?
 
+    /// Descargas de todas las pestañas (la Librería las muestra).
+    public let downloads = DownloadManager()
+
     public init() {
         configuration = WKWebViewConfiguration()
         // Un solo almacén para todas las pestañas; WebKit comparte los procesos entre ellas.
@@ -31,7 +34,7 @@ public final class WebKitEngine: WebEngine {
     private var profileConfigurations: [UUID: WKWebViewConfiguration] = [:]
 
     public func makePage(profile: UUID?) -> WebPage {
-        WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost)
+        WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads)
     }
 
     private func configuration(for profile: UUID?) -> WKWebViewConfiguration {
@@ -77,7 +80,7 @@ public final class WebKitEngine: WebEngine {
 }
 
 @MainActor
-final class WebKitPage: NSObject, WebPage, WKUIDelegate {
+final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     let webView: WKWebView
     private var observations: [NSKeyValueObservation] = []
     private var faviconURL: URL?
@@ -105,15 +108,19 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
     })()
     """
 
-    init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?) {
+    private weak var downloads: DownloadManager?
+
+    init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?, downloads: DownloadManager?) {
         webView = WKWebView(frame: .zero, configuration: configuration)
         self.extensionsHost = extensionsHost
+        self.downloads = downloads
         super.init()
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
         // "Inspeccionar elemento" en el menú contextual (herramientas para desarrolladores).
         webView.isInspectable = true
         webView.uiDelegate = self
+        webView.navigationDelegate = self
 
         // WKWebView publica estos cambios por KVO en el hilo principal.
         let notify: @Sendable () -> Void = { [weak self] in
@@ -180,6 +187,34 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
 
     func willClose() {
         if #available(macOS 15.4, *) { (extensionsHost as? WebExtensionsHost)?.didClose(self) }
+    }
+
+    // MARK: WKNavigationDelegate (descargas)
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
+        // Enlaces con el atributo `download`.
+        navigationAction.shouldPerformDownload ? .download : .allow
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse
+    ) async -> WKNavigationResponsePolicy {
+        // Lo que no se puede mostrar (zip, dmg…) o lo que el servidor marca como adjunto, se descarga.
+        let disposition = (navigationResponse.response as? HTTPURLResponse)?
+            .value(forHTTPHeaderField: "Content-Disposition")?.lowercased() ?? ""
+        if !navigationResponse.canShowMIMEType || disposition.hasPrefix("attachment") {
+            return .download
+        }
+        return .allow
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        downloads?.track(download)
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        downloads?.track(download)
     }
 
     // MARK: WKUIDelegate

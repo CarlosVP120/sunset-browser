@@ -6,6 +6,7 @@ import SidebarFeature
 import ToolbarFeature
 import CommandBarFeature
 import ExtensionsFeature
+import LibraryFeature
 
 struct BrowserWindow: View {
     let browser: Browser
@@ -21,8 +22,14 @@ struct BrowserWindow: View {
 
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
-                if browser.showsSidebar {
-                    SidebarView(browser: browser, accessory: sidebarAccessory)
+                if browser.showsSidebar && browser.showsLibrary {
+                    // La Librería ocupa el lugar de la barra lateral, algo más ancha.
+                    LibraryView(browser: browser, downloads: engine.downloads)
+                        .frame(width: max(browser.sidebarWidth, 400))
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        .zIndex(1)
+                } else if browser.showsSidebar {
+                    SidebarView(browser: browser, accessory: sidebarAccessory, libraryButton: libraryButton)
                         .frame(width: browser.sidebarWidth)
                         .transition(.move(edge: .leading).combined(with: .opacity))
                         .zIndex(1)
@@ -38,7 +45,6 @@ struct BrowserWindow: View {
                     WebContentArea(browser: browser)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                         .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                        // El haz va justo por fuera del borde, sobre el marco: se ve en páginas claras y oscuras.
                         .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .overlay(alignment: .top) {
                             ZoomIndicatorView(browser: browser).padding(.top, 10)
@@ -54,7 +60,7 @@ struct BrowserWindow: View {
 
             // El borde para redimensionar vive fuera de la barra: así el arrastre sigue
             // aunque la barra se colapse a mitad del gesto.
-            if browser.showsSidebar || isResizingSidebar {
+            if (browser.showsSidebar && !browser.showsLibrary) || isResizingSidebar {
                 SidebarResizeHandle(browser: browser, isResizing: $isResizingSidebar)
                     .frame(width: 10)
                     .frame(maxHeight: .infinity)
@@ -87,6 +93,7 @@ struct BrowserWindow: View {
         .ignoresSafeArea()
         .animation(Theme.spring, value: browser.showsSidebar)
         .animation(Theme.spring, value: browser.showsToolbar)
+        .animation(Theme.spring, value: browser.showsLibrary)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
         .sheet(isPresented: Binding(
@@ -110,6 +117,10 @@ struct BrowserWindow: View {
         }
     }
 
+    private var libraryButton: AnyView {
+        AnyView(LibraryButton(browser: browser, downloads: engine.downloads))
+    }
+
     /// Con la barra superior oculta, las extensiones van arriba en la barra lateral.
     private var sidebarAccessory: AnyView? {
         browser.showsToolbar ? nil : AnyView(extensionsToolbar)
@@ -125,7 +136,7 @@ struct BrowserWindow: View {
             .onHover { if $0 { withAnimation(Theme.spring) { isPeekingSidebar = true } } }
 
         if isPeekingSidebar {
-            SidebarView(browser: browser, accessory: sidebarAccessory)
+            SidebarView(browser: browser, accessory: sidebarAccessory, libraryButton: libraryButton)
                 .frame(width: browser.sidebarWidth)
                 .background(SpaceBackground(theme: browser.activeSpace.theme.resolved(systemIsDark: systemColorScheme == .dark)))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

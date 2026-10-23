@@ -50,3 +50,26 @@ public struct Toast: Equatable, Sendable {
     public let message: String
     public let symbol: String
 }
+
+/// Secciones de la Librería.
+public enum LibrarySection: String, CaseIterable, Sendable {
+    case media, downloads, spaces, archive
+
+    public var title: String {
+        switch self {
+        case .media: "Media"
+        case .downloads: "Descargas"
+        case .spaces: "Espacios"
+        case .archive: "Pestañas archivadas"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .media: "photo.on.rectangle.angled"
+        case .downloads: "arrow.down.circle"
+        case .spaces: "square.stack"
+        case .archive: "archivebox"
+        }
+    }
+}

@@ -22,16 +22,21 @@ let package = Package(
         .target(name: "CommandBarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // Extensiones: botones en la barra, panel de gestión e instalación (Chrome Web Store, .zip, .crx).
         .target(name: "ExtensionsFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
+        // Librería (equivalente a la Library de Arc): descargas, media, espacios y pestañas archivadas.
+        .target(name: "LibraryFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // La app: ventana, menús y contenido web.
         .executableTarget(
             name: "MiNavegador",
             dependencies: [
                 "BrowserEngine", "BrowserCore", "BrowserUI",
-                "SidebarFeature", "ToolbarFeature", "CommandBarFeature", "ExtensionsFeature",
+                "SidebarFeature", "ToolbarFeature", "CommandBarFeature", "ExtensionsFeature", "LibraryFeature",
             ]
         ),
         .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore"]),
         // Renderiza vistas a PNG para revisarlas sin abrir la app.
-        .testTarget(name: "UISnapshotTests", dependencies: ["BrowserCore", "BrowserUI", "SidebarFeature"]),
+        .testTarget(
+            name: "UISnapshotTests",
+            dependencies: ["BrowserCore", "BrowserEngine", "BrowserUI", "SidebarFeature", "LibraryFeature"]
+        ),
     ]
 )
