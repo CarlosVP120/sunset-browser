@@ -7,6 +7,7 @@ import ToolbarFeature
 import CommandBarFeature
 import ExtensionsFeature
 import LibraryFeature
+import HomeFeature
 
 struct BrowserWindow: View {
     let browser: Browser
@@ -68,8 +69,16 @@ struct BrowserWindow: View {
                     .zIndex(2)
             }
 
-            if !browser.showsSidebar && !isResizingSidebar {
+            if !browser.showsSidebar && !isResizingSidebar && !browser.isPresenting {
                 peekingSidebar
+            }
+
+            // Modo pantalla compartida: Inicio cubre toda la ventana; tus pestañas no se ven.
+            if browser.isPresenting {
+                HomeView(browser: browser, isPresenting: true)
+                    .ignoresSafeArea()
+                    .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                    .zIndex(15)
             }
 
             ToastView(browser: browser)
@@ -94,6 +103,7 @@ struct BrowserWindow: View {
         .animation(Theme.spring, value: browser.showsSidebar)
         .animation(Theme.spring, value: browser.showsToolbar)
         .animation(Theme.spring, value: browser.showsLibrary)
+        .animation(.spring(response: 0.45, dampingFraction: 0.9), value: browser.isPresenting)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
         .sheet(isPresented: Binding(
@@ -158,7 +168,7 @@ private struct WebContentArea: View {
     let browser: Browser
 
     var body: some View {
-        if let tab = browser.selectedTab {
+        if let tab = browser.selectedTab, !tab.isHome {
             if let page = tab.page {
                 WebContentView(page: page)
             } else {
@@ -166,7 +176,9 @@ private struct WebContentArea: View {
                 Color.white.task(id: tab.id) { tab.wake() }
             }
         } else {
-            EmptyTabView(browser: browser)
+            // La pestaña Inicio, o ninguna pestaña abierta.
+            HomeView(browser: browser)
+                .transition(.opacity)
         }
     }
 }
@@ -204,22 +216,4 @@ private struct WindowConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSView, context: Context) {}
-}
-
-private struct EmptyTabView: View {
-    let browser: Browser
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "globe")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.secondary)
-            Text("Ninguna pestaña abierta")
-                .font(.title3.weight(.medium))
-            Button("Nueva pestaña  ⌘T") { browser.newTab() }
-                .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
-    }
 }

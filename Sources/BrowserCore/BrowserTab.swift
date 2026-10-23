@@ -47,9 +47,13 @@ public final class BrowserTab: Identifiable {
 
     public var isHibernated: Bool { page == nil }
 
+    /// Si la pestaña muestra la página Inicio.
+    public var isHome: Bool { HomePage.isHome(url) }
+
     /// Texto a mostrar en la barra lateral.
     public var displayTitle: String {
         if let customTitle, !customTitle.isEmpty { return customTitle }
+        if isHome { return "Inicio" }
         if !title.isEmpty { return title }
         return url?.host() ?? "Nueva pestaña"
     }
@@ -68,7 +72,8 @@ public final class BrowserTab: Identifiable {
         if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
-        } else if let url {
+        } else if let url, !HomePage.isHome(url) {
+            // Inicio no es una web: se dibuja aparte y la página queda en blanco hasta que navegues.
             page.load(url)
         }
         self.page = page

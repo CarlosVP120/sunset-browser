@@ -36,7 +36,9 @@ public struct CommandBarView: View {
         }
         .environment(\.colorScheme, .dark)
         .onAppear {
-            if mode == .currentTab, let url = browser.selectedTab?.url { query = url.absoluteString }
+            if mode == .currentTab, let tab = browser.selectedTab, !tab.isHome, let url = tab.url {
+                query = url.absoluteString
+            }
             isFocused = true
         }
         .task {

@@ -488,7 +488,7 @@ private struct NewTabRow: View {
     @Environment(\.spaceTheme) private var theme
 
     var body: some View {
-        Button { browser.newTab() } label: {
+        Button { withAnimation(Theme.spring) { browser.openHome() } } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .semibold))
@@ -501,7 +501,7 @@ private struct NewTabRow: View {
             .padding(.horizontal, 10)
         }
         .buttonStyle(SidebarRowStyle(isSelected: false))
-        .tooltip("Nueva pestaña", shortcut: "⌘T")
+        .tooltip("Nueva pestaña en Inicio (⌘T abre el Command Bar)")
     }
 }
 
@@ -557,7 +557,7 @@ private struct BottomBar: View {
             Spacer()
 
             Menu {
-                Button("Nueva pestaña") { browser.newTab() }
+                Button("Nueva pestaña") { withAnimation(Theme.spring) { browser.openHome() } }
                 Button("Nueva carpeta") { withAnimation(Theme.spring) { _ = browser.newFolder() } }
                 Divider()
                 Button("Nuevo espacio") { browser.addSpace(name: "Espacio \(browser.spaces.count + 1)") }

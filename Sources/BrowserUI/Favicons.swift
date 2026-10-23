@@ -25,7 +25,8 @@ public final class FaviconCache {
     /// Carga el icono del dominio desde disco o internet, si aún no se tiene.
     /// Si la página declara su propio icono, sustituye al `/favicon.ico` genérico.
     public func load(pageURL: URL?, iconURL: URL?) async {
-        guard let host = pageURL?.host(), !host.isEmpty,
+        guard pageURL?.scheme == "http" || pageURL?.scheme == "https",
+              let host = pageURL?.host(), !host.isEmpty,
               let candidate = iconURL ?? URL(string: "https://\(host)/favicon.ico")
         else { return }
 
@@ -67,7 +68,9 @@ public struct FaviconView: View {
     public var body: some View {
         let cache = FaviconCache.shared
         Group {
-            if let host = pageURL?.host(), let image = cache.image(for: host) {
+            if HomePage.isHome(pageURL) {
+                Image(systemName: "house.fill").resizable().scaledToFit().foregroundStyle(Theme.secondaryText)
+            } else if let host = pageURL?.host(), let image = cache.image(for: host) {
                 Image(nsImage: image).resizable().interpolation(.high)
                     .transition(.opacity)
             } else {

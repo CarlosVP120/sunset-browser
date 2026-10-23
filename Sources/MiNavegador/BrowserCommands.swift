@@ -16,6 +16,8 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("n")
             Button("Abrir ubicación") { browser.editCurrentTab() }
                 .keyboardShortcut("l")
+            Button("Inicio") { withAnimation { browser.openHome() } }
+                .keyboardShortcut("h", modifiers: [.command, .shift])
             Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
                 .disabled(browser.archive.isEmpty)
@@ -62,6 +64,10 @@ struct BrowserCommands: Commands {
             .keyboardShortcut("l", modifiers: [.command, .shift])
             Button("Descargas") { browser.perform(.showDownloads) }
                 .keyboardShortcut("l", modifiers: [.command, .option])
+            Button(browser.isPresenting ? "Salir del modo pantalla compartida" : "Modo pantalla compartida") {
+                withAnimation { browser.setPresenting(!browser.isPresenting) }
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
             Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
                 browser.showsToolbar.toggle()
             }

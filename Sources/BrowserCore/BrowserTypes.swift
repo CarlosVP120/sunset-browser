@@ -73,3 +73,12 @@ public enum LibrarySection: String, CaseIterable, Sendable {
         }
     }
 }
+
+/// La página Inicio: una pestaña propia del navegador (reloj, buscador, favoritos) en lugar de una web.
+public enum HomePage {
+    public static let url = URL(string: "minavegador://home")!
+
+    public static func isHome(_ url: URL?) -> Bool {
+        url?.scheme == "minavegador" && url?.host() == "home"
+    }
+}

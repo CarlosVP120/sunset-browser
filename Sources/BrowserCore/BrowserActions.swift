@@ -2,6 +2,25 @@ import AppKit
 
 // Acciones de los atajos de Arc y del menú de cada espacio.
 extension Browser {
+    // MARK: - Inicio
+
+    /// Abre la página Inicio (el botón "Nueva pestaña"). Si ya hay una pestaña Inicio en Hoy, va a ella.
+    public func openHome() {
+        let space = activeSpace
+        if let existing = space.tabs.first(where: \.isHome) {
+            select(existing)
+        } else {
+            openTab(HomePage.url)
+        }
+    }
+
+    /// Modo pantalla compartida: muestra solo Inicio, sin nada privado a la vista.
+    public func setPresenting(_ presenting: Bool) {
+        isPresenting = presenting
+        commandBar = nil
+        isFindBarVisible = false
+    }
+
     // MARK: - Buscar en la página (⌘F, ⌘G, ⇧⌘G)
 
     public func showFindBar() {

@@ -20,6 +20,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     case newFolder, collapseAllFolders, expandAllFolders, togglePinnedSection
     case newSpace, renameSpace, editTheme, manageSpaces
     // Ventana
+    case goHome, togglePresenting
     case toggleSidebar, toggleToolbar, showLibrary, showDownloads, showShortcuts, importFromArc
 
     public var title: String {
@@ -64,6 +65,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "Gestionar espacios"
         case .toggleSidebar: "Mostrar u ocultar barra lateral"
         case .toggleToolbar: "Mostrar u ocultar barra de herramientas"
+        case .goHome: "Ir a Inicio"
+        case .togglePresenting: "Modo pantalla compartida"
         case .showLibrary: "Abrir la Librería"
         case .showDownloads: "Ver descargas"
         case .showShortcuts: "Atajos de teclado"
@@ -112,6 +115,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "square.stack.3d.up"
         case .toggleSidebar: "sidebar.left"
         case .toggleToolbar: "menubar.rectangle"
+        case .goHome: "house"
+        case .togglePresenting: "rectangle.on.rectangle.slash"
         case .showLibrary: "books.vertical"
         case .showDownloads: "arrow.down.circle"
         case .showShortcuts: "keyboard"
@@ -137,6 +142,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .newFolder: "⌥⌘N"
         case .toggleSidebar: "⌘S"
         case .toggleToolbar: "⌥⌘T"
+        case .goHome: "⇧⌘H"
+        case .togglePresenting: "⇧⌘P"
         case .showLibrary: "⇧⌘L"
         case .showDownloads: "⌥⌘L"
         default: nil
@@ -186,6 +193,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .manageSpaces: "manage spaces"
         case .toggleSidebar: "toggle show hide sidebar ocultar"
         case .toggleToolbar: "toggle toolbar url bar"
+        case .goHome: "home inicio start new tab"
+        case .togglePresenting: "present share screen presentar compartir pantalla privado privacy standby"
         case .showLibrary: "library libreria media archived tabs"
         case .showDownloads: "downloads descargas archivos"
         case .showShortcuts: "keyboard shortcuts atajos teclas"
@@ -202,7 +211,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
              .viewSource, .pauseAllMedia, .zoomIn, .zoomOut, .resetZoom,
              .clearSiteCookiesAndRefresh, .clearSiteCacheAndRefresh, .closeTab, .duplicateTab, .renameTab,
              .togglePin, .addToFavorites:
-            return tab?.url != nil
+            return tab?.url != nil && tab?.isHome == false
         case .moveToToday:
             return tab.map { browser.activeSpace.isPinned($0) || browser.isFavorite($0) } ?? false
         case .archiveTabsBelow, .archiveTabsAbove, .archiveOtherTabs, .clearTodayTabs, .clearUnselectedTodayTabs:
@@ -302,6 +311,8 @@ extension Browser {
 
         case .toggleSidebar: showsSidebar.toggle()
         case .toggleToolbar: showsToolbar.toggle()
+        case .goHome: openHome()
+        case .togglePresenting: setPresenting(!isPresenting)
         case .showLibrary:
             showsSidebar = true
             showsLibrary = true

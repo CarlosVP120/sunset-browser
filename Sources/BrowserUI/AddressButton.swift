@@ -23,7 +23,7 @@ public struct AddressButton: View {
         switch style {
         case .toolbar:
             HStack(spacing: 2) {
-                if let url = browser.selectedTab?.url {
+                if let url = browser.selectedTab?.url, !HomePage.isHome(url) {
                     SiteInfoButton(browser: browser, url: url)
                         .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 }
@@ -40,7 +40,7 @@ public struct AddressButton: View {
         case .sidebar:
             Button { browser.editCurrentTab() } label: {
                 HStack(spacing: 6) {
-                    if let url = browser.selectedTab?.url {
+                    if let url = browser.selectedTab?.url, !HomePage.isHome(url) {
                         Image(systemName: url.scheme == "https" ? "lock.fill" : "link")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(Color(theme.subtitle).opacity(1.4))
@@ -59,7 +59,10 @@ public struct AddressButton: View {
 
     private func domainText(size: CGFloat) -> some View {
         Group {
-            if let url = browser.selectedTab?.url {
+            if browser.selectedTab?.isHome == true {
+                Label("Inicio", systemImage: "house.fill")
+                    .foregroundStyle(Color(theme.title))
+            } else if let url = browser.selectedTab?.url {
                 Text(Self.displayHost(url))
                     .foregroundStyle(Color(theme.title))
             } else {

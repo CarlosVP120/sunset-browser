@@ -18,6 +18,8 @@ public final class Browser {
     public var librarySection: LibrarySection = .downloads
     /// Pestaña que se está renombrando en la barra lateral.
     public var renamingTabID: BrowserTab.ID?
+    /// Modo pantalla compartida: Inicio a pantalla completa, sin barra lateral ni pestañas a la vista.
+    public var isPresenting = false
     /// Ventana con la lista de atajos de teclado.
     public var showsShortcuts = false
     /// Aviso breve abajo ("Enlace copiado").
@@ -172,7 +174,7 @@ public final class Browser {
         tab.hibernate()
         if !keepsTab {
             space.remove(tab)
-            if let url = tab.url {
+            if let url = tab.url, !tab.isHome {
                 archive.insert(ArchivedTab(id: tab.id, url: url, title: tab.displayTitle, closedAt: Date()), at: 0)
                 archive = Array(archive.prefix(Self.archiveLimit))
             }
