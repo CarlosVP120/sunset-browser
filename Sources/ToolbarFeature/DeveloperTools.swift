@@ -7,7 +7,7 @@ import BrowserUI
 // MARK: - Barra en modo desarrollador
 
 public extension DeveloperMode {
-    /// Amarillo de obra (el de Arc): la etiqueta DEV y el borde de las pestañas.
+    /// Amarillo de obra (el de Arc): el borde de las pestañas.
     static let color = Color(red: 1.0, green: 0.82, blue: 0.22)
 }
 
@@ -41,18 +41,6 @@ struct DeveloperAddress: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Button { browser.perform(.toggleDeveloperMode) } label: {
-                Text("DEV")
-                    .font(.system(size: 9.5, weight: .heavy, design: .rounded))
-                    .kerning(0.6)
-                    .foregroundStyle(Color(red: 0.16, green: 0.12, blue: 0.0))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(DeveloperMode.color))
-            }
-            .buttonStyle(.plain)
-            .tooltip("Salir del modo desarrollador en este sitio", shortcut: "⌃D")
-
             Button { browser.editCurrentTab() } label: {
                 Text(tab.url?.absoluteString ?? "")
                     .font(.system(size: 12.5, weight: .medium, design: .monospaced))
