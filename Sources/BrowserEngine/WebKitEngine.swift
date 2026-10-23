@@ -14,6 +14,8 @@ public final class WebKitEngine: WebEngine {
         configuration = WKWebViewConfiguration()
         // Un solo almacén para todas las pestañas; WebKit comparte los procesos entre ellas.
         configuration.websiteDataStore = .default()
+        // Scroll a la frecuencia real de la pantalla (no a ~60 fps) y rueda del ratón animada.
+        WebKitFeatures.applySmoothScrolling(to: configuration.preferences)
 
         if #available(macOS 15.4, *) {
             let host = WebExtensionsHost()
@@ -42,6 +44,7 @@ public final class WebKitEngine: WebEngine {
         if let existing = profileConfigurations[profile] { return existing }
         let profileConfiguration = configuration.copy() as! WKWebViewConfiguration
         profileConfiguration.websiteDataStore = WKWebsiteDataStore(forIdentifier: profile)
+        WebKitFeatures.applySmoothScrolling(to: profileConfiguration.preferences)
         profileConfigurations[profile] = profileConfiguration
         return profileConfiguration
     }

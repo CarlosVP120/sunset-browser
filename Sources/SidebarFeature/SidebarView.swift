@@ -384,7 +384,7 @@ private struct TabRowLabel: View {
             } else {
                 // El título usa todo el ancho y se desvanece al final; al pasar el ratón,
                 // el desvanecido se alarga para dejar sitio al botón de cerrar.
-                FadingText(tab.displayTitle, fade: isHovering ? 40 : 14)
+                FadingText(tab.displayTitle, fade: 14, trailingClear: isHovering ? 24 : 0)
                     .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
                     .animation(Theme.hoverOut, value: isHovering)
             }

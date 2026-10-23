@@ -72,11 +72,21 @@ public struct AddressButton: View {
         }
         .font(.system(size: size, weight: .semibold))
         .lineLimit(1)
+        .truncationMode(.middle)
+        .frame(maxWidth: 420)
     }
 
+    /// El dominio sin "www."; para direcciones sin dominio, un nombre corto (nunca la URL entera).
     public static func displayHost(_ url: URL) -> String {
-        guard let host = url.host() else { return url.absoluteString }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        if let host = url.host(), !host.isEmpty {
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        switch url.scheme {
+        case "file": return url.lastPathComponent
+        case "data": return "Contenido local"
+        case "about": return url.absoluteString
+        default: return String(url.absoluteString.prefix(40))
+        }
     }
 }
 

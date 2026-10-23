@@ -4,12 +4,14 @@ import SwiftUI
 /// en lugar de cortarse con "…" (como los títulos de pestañas en Arc).
 public struct FadingText: View {
     let text: String
-    /// Ancho del desvanecido; más ancho cuando hay un botón encima (p. ej. cerrar al pasar el ratón).
     var fade: CGFloat
+    /// Espacio al final donde el texto ya no se ve nada (p. ej. bajo el botón de cerrar).
+    var trailingClear: CGFloat
 
-    public init(_ text: String, fade: CGFloat = 16) {
+    public init(_ text: String, fade: CGFloat = 16, trailingClear: CGFloat = 0) {
         self.text = text
         self.fade = fade
+        self.trailingClear = trailingClear
     }
 
     public var body: some View {
@@ -30,6 +32,7 @@ public struct FadingText: View {
                     Color.black
                     LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
                         .frame(width: fade)
+                    Color.clear.frame(width: trailingClear)
                 }
             )
     }
