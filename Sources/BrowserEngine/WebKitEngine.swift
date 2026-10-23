@@ -7,9 +7,8 @@ public final class WebKitEngine: WebEngine {
 
     public init() {
         configuration = WKWebViewConfiguration()
+        // Un solo almacén para todas las pestañas; WebKit comparte los procesos entre ellas.
         configuration.websiteDataStore = .default()
-        // Un solo almacén y pool de procesos para todas las pestañas: menos RAM por pestaña.
-        configuration.processPool = WKProcessPool()
     }
 
     public func makePage() -> WebPage {
@@ -26,6 +25,11 @@ final class WebKitPage: WebPage {
     var onChange: (@MainActor (WebPageSnapshot) -> Void)?
     var view: NSView { webView }
     var interactionState: Any? { webView.interactionState }
+
+    var zoom: Double {
+        get { webView.pageZoom }
+        set { webView.pageZoom = newValue }
+    }
 
     private static let faviconScript = """
     (() => {

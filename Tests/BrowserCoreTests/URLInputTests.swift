@@ -9,7 +9,7 @@ final class URLInputTests: XCTestCase {
     func testAddsHTTPSToHosts() {
         XCTAssertEqual(URLInput.resolve("github.com")?.absoluteString, "https://github.com")
         XCTAssertEqual(URLInput.resolve("  wikipedia.org/wiki/Arc  ")?.absoluteString, "https://wikipedia.org/wiki/Arc")
-        XCTAssertEqual(URLInput.resolve("localhost:3000")?.absoluteString, "https://localhost:3000")
+        XCTAssertEqual(URLInput.resolve("localhost:3000")?.absoluteString, "http://localhost:3000")
     }
 
     func testSearchesEverythingElse() {

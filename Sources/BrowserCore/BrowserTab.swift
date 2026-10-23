@@ -20,6 +20,8 @@ public final class BrowserTab: Identifiable {
     @ObservationIgnored private var savedInteractionState: Any?
     /// Avisa al navegador de que hay algo nuevo que guardar.
     @ObservationIgnored var onStateChange: (() -> Void)?
+    /// Zoom guardado para cada dominio.
+    @ObservationIgnored var zoomForHost: ((String) -> Double)?
 
     init(
         id: UUID = UUID(),
@@ -51,6 +53,7 @@ public final class BrowserTab: Identifiable {
 
         let page = makePage()
         page.onChange = { [weak self] snapshot in self?.apply(snapshot) }
+        if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
         } else if let url {
@@ -90,6 +93,9 @@ public final class BrowserTab: Identifiable {
     private func apply(_ snapshot: WebPageSnapshot) {
         let before = (title, url, faviconURL)
         if !snapshot.title.isEmpty { title = snapshot.title }
+        if let newHost = snapshot.url?.host(), newHost != url?.host(), let zoom = zoomForHost?(newHost) {
+            page?.zoom = zoom
+        }
         url = snapshot.url ?? url
         faviconURL = snapshot.faviconURL ?? faviconURL
         isLoading = snapshot.isLoading

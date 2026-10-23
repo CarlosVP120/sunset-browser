@@ -1,7 +1,8 @@
 import SwiftUI
 import BrowserCore
 
-/// Colores y medidas de la interfaz, sobre el vidrio oscuro tintado del espacio.
+/// Medidas, animaciones y colores neutros de la interfaz.
+/// Los colores de cada espacio vienen de `SpaceTheme` (ver `\.spaceTheme`).
 public enum Theme {
     public static let primaryText = Color.white.opacity(0.90)
     public static let secondaryText = Color.white.opacity(0.50)
@@ -17,11 +18,31 @@ public enum Theme {
     public static let cornerRadius: CGFloat = 8
     /// Espacio que ocupan los botones de cerrar/minimizar/maximizar.
     public static let windowButtonsInset: CGFloat = 76
+
+    /// Muelle corto y amortiguado: la sensación "premium" de Arc (sin rebotes exagerados).
+    public static let spring = Animation.spring(response: 0.28, dampingFraction: 0.86)
+    /// Para pulsaciones: más rápido.
+    public static let pressSpring = Animation.spring(response: 0.18, dampingFraction: 0.75)
+    /// Aparición del hover: entra rápido, sale un poco más lento.
+    public static let hoverIn = Animation.easeOut(duration: 0.08)
+    public static let hoverOut = Animation.easeOut(duration: 0.22)
 }
 
 public extension Color {
     init(_ color: SpaceColor) {
-        self.init(.sRGB, red: color.red, green: color.green, blue: color.blue)
+        self.init(.sRGB, red: color.red, green: color.green, blue: color.blue, opacity: color.alpha)
+    }
+}
+
+private struct SpaceThemeKey: EnvironmentKey {
+    static let defaultValue = SpaceTheme.default
+}
+
+public extension EnvironmentValues {
+    /// Tema del espacio activo: fondo, hover, selección y textos.
+    var spaceTheme: SpaceTheme {
+        get { self[SpaceThemeKey.self] }
+        set { self[SpaceThemeKey.self] = newValue }
     }
 }
 

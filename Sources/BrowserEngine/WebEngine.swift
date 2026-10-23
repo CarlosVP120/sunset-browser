@@ -35,6 +35,8 @@ public protocol WebPage: AnyObject {
     var onChange: (@MainActor (WebPageSnapshot) -> Void)? { get set }
     /// Historial y posición de scroll, para poder hibernar la página y restaurarla.
     var interactionState: Any? { get }
+    /// Zoom de la página (1 = 100 %).
+    var zoom: Double { get set }
 
     func load(_ url: URL)
     func restore(interactionState: Any)

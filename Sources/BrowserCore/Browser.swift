@@ -11,8 +11,11 @@ public final class Browser {
     public private(set) var activeSpaceID: Space.ID
     /// Pestañas cerradas, de la más reciente a la más antigua.
     public private(set) var archive: [ArchivedTab] = []
-    /// Se incrementa para pedir a la interfaz que enfoque el campo de URL.
-    public private(set) var urlFocusRequests = 0
+    /// El Command Bar abierto, si lo hay.
+    public var commandBar: CommandBarMode?
+    /// Último cambio de zoom, para mostrar el indicador.
+    public private(set) var zoomIndicator: ZoomIndicator?
+    public let history: History
 
     public var showsSidebar = true
     public var showsToolbar: Bool {
@@ -33,6 +36,7 @@ public final class Browser {
     public init(
         engine: WebEngine,
         store: SidebarStore? = .standard,
+        historyFileURL: URL? = History.standardFileURL,
         importFromArc: Bool = true,
         defaults: UserDefaults = .standard,
         startsBackgroundWork: Bool = true
@@ -40,6 +44,7 @@ public final class Browser {
         self.engine = engine
         self.store = store
         self.defaults = defaults
+        history = History(fileURL: historyFileURL)
         showsToolbar = defaults.object(forKey: "showsToolbar") as? Bool ?? true
         activeSpaceID = UUID()
 
@@ -48,8 +53,8 @@ public final class Browser {
         }
         if spaces.isEmpty {
             spaces = [
-                Space(name: "Personal", icon: "house", color: .slate),
-                Space(name: "Trabajo", icon: "briefcase", color: .plum),
+                Space(name: "Personal", icon: "house", theme: .dark(from: .navy)),
+                Space(name: "Trabajo", icon: "briefcase", theme: .dark(from: .plum)),
             ]
         }
         if !spaces.contains(where: { $0.id == activeSpaceID }) {
@@ -96,10 +101,22 @@ public final class Browser {
         return tab
     }
 
-    /// Abre una pestaña nueva y pide enfocar el campo de URL (Cmd+T).
+    /// Abre el Command Bar para una pestaña nueva (⌘T). La pestaña se crea al elegir destino.
     public func newTab() {
-        openTab()
-        requestURLFocus()
+        commandBar = .newTab
+    }
+
+    /// Abre el Command Bar sobre la pestaña actual (⌘L o clic en la dirección).
+    public func editCurrentTab() {
+        commandBar = selectedTab == nil ? .newTab : .currentTab
+    }
+
+    public func tab(withID id: BrowserTab.ID) -> BrowserTab? {
+        allTabs.first { $0.id == id }
+    }
+
+    public func folder(withID id: Folder.ID) -> Folder? {
+        spaces.lazy.flatMap(\.folders).first { $0.id == id }
     }
 
     /// Navega en la pestaña actual o abre una si no hay ninguna.
@@ -232,13 +249,99 @@ public final class Browser {
 
     public func addSpace(name: String) {
         let color = SpaceColor.palette[spaces.count % SpaceColor.palette.count]
-        let space = Space(name: name, icon: "circle.grid.2x2", color: color)
+        let space = Space(name: name, icon: "circle.grid.2x2", theme: .dark(from: color))
         spaces.append(space)
         activate(space)
     }
 
-    public func requestURLFocus() {
-        urlFocusRequests += 1
+    /// Sustituye la barra lateral por la de Arc (mantiene el archivo y el historial).
+    public func reimportFromArc() throws {
+        var snapshot = try ArcImporter.load()
+        snapshot.archive = archive
+        for tab in allTabs { tab.hibernate() }
+        apply(snapshot)
+        selectedTab?.wake()
+        scheduleSave()
+    }
+
+    // MARK: - Arrastrar y soltar
+
+    /// Mueve una pestaña a otra posición: favoritos, fijadas, una carpeta o las de hoy.
+    public func move(_ tab: BrowserTab, to location: DropLocation) {
+        let space = activeSpace
+        // Si se mueve hacia abajo dentro de la misma lista, al sacarla los índices bajan uno.
+        func adjusted(_ index: Int, in ids: [UUID]) -> Int {
+            guard let old = ids.firstIndex(of: tab.id), old < index else { return index }
+            return index - 1
+        }
+
+        var location = location
+        switch location {
+        case .favorites(let index): location = .favorites(adjusted(index, in: favorites.map(\.id)))
+        case .pinned(let index): location = .pinned(adjusted(index, in: space.pinned.map(\.id)))
+        case .folder(let folder, let index): location = .folder(folder, adjusted(index, in: folder.tabs.map(\.id)))
+        case .today(let index): location = .today(adjusted(index, in: space.tabs.map(\.id)))
+        }
+
+        detach(tab)
+        switch location {
+        case .favorites(let index):
+            favorites.insert(tab, at: min(index, favorites.count))
+        case .pinned(let index):
+            space.pinned.insert(.tab(tab), at: min(index, space.pinned.count))
+        case .folder(let folder, let index):
+            folder.tabs.insert(tab, at: min(index, folder.tabs.count))
+            folder.isExpanded = true
+        case .today(let index):
+            space.tabs.insert(tab, at: min(index, space.tabs.count))
+        }
+        scheduleSave()
+    }
+
+    /// Mueve una carpeta dentro de la sección fijada.
+    public func move(_ folder: Folder, toPinnedIndex index: Int) {
+        let space = activeSpace
+        guard let old = space.pinned.firstIndex(where: { $0.id == folder.id }) else { return }
+        let item = space.pinned.remove(at: old)
+        let index = old < index ? index - 1 : index
+        space.pinned.insert(item, at: min(max(index, 0), space.pinned.count))
+        scheduleSave()
+    }
+
+    /// Abre una URL arrastrada desde fuera en la posición indicada.
+    public func open(_ url: URL, at location: DropLocation) {
+        let tab = openTab(url)
+        move(tab, to: location)
+    }
+
+    // MARK: - Zoom
+
+    private static let zoomSteps: [Double] = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
+
+    public func zoomIn() { stepZoom(by: 1) }
+    public func zoomOut() { stepZoom(by: -1) }
+    public func resetZoom() { setZoom(1) }
+
+    private func stepZoom(by step: Int) {
+        guard let current = selectedTab?.page?.zoom else { return }
+        let index = Self.zoomSteps.firstIndex { $0 >= current - 0.001 } ?? Self.zoomSteps.count - 1
+        let next = Self.zoomSteps[min(max(index + step, 0), Self.zoomSteps.count - 1)]
+        setZoom(next)
+    }
+
+    private func setZoom(_ zoom: Double) {
+        guard let tab = selectedTab, let page = tab.page else { return }
+        page.zoom = zoom
+        if let host = tab.url?.host() {
+            var levels = defaults.dictionary(forKey: "zoomLevels") as? [String: Double] ?? [:]
+            levels[host] = zoom == 1 ? nil : zoom
+            defaults.set(levels, forKey: "zoomLevels")
+        }
+        zoomIndicator = ZoomIndicator(zoom: zoom)
+    }
+
+    private func zoom(forHost host: String) -> Double {
+        (defaults.dictionary(forKey: "zoomLevels") as? [String: Double])?[host] ?? 1
     }
 
     // MARK: - Hibernación
@@ -299,7 +402,12 @@ public final class Browser {
 
     private func makeTab(url: URL?, id: UUID = UUID(), title: String = "", faviconURL: URL? = nil) -> BrowserTab {
         let tab = BrowserTab(id: id, url: url, title: title, faviconURL: faviconURL) { [engine] in engine.makePage() }
-        tab.onStateChange = { [weak self] in self?.scheduleSave() }
+        tab.onStateChange = { [weak self, weak tab] in
+            guard let self else { return }
+            scheduleSave()
+            if let tab, let url = tab.url { history.record(url: url, title: tab.title) }
+        }
+        tab.zoomForHost = { [weak self] host in self?.zoom(forHost: host) ?? 1 }
         return tab
     }
 
@@ -320,7 +428,7 @@ public final class Browser {
                     id: space.id,
                     name: space.name,
                     icon: space.icon,
-                    color: space.color,
+                    theme: space.theme,
                     pinned: space.pinned.map { item in
                         switch item {
                         case .tab(let tab):
@@ -345,7 +453,7 @@ public final class Browser {
         }
         favorites = snapshot.favorites.map(tab)
         spaces = snapshot.spaces.map { record in
-            let space = Space(id: record.id, name: record.name, icon: record.icon, color: record.color)
+            let space = Space(id: record.id, name: record.name, icon: record.icon, theme: record.theme)
             space.pinned = record.pinned.map { item in
                 switch item {
                 case .tab(let tabRecord):

@@ -25,10 +25,60 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var id: UUID
         public var name: String
         public var icon: String
-        public var color: SpaceColor
+        public var theme: SpaceTheme
         public var pinned: [ItemRecord]
         public var tabs: [TabRecord]
         public var selectedTabID: UUID?
+
+        public init(
+            id: UUID,
+            name: String,
+            icon: String,
+            theme: SpaceTheme,
+            pinned: [ItemRecord],
+            tabs: [TabRecord],
+            selectedTabID: UUID?
+        ) {
+            self.id = id
+            self.name = name
+            self.icon = icon
+            self.theme = theme
+            self.pinned = pinned
+            self.tabs = tabs
+            self.selectedTabID = selectedTabID
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, name, icon, theme, color, pinned, tabs, selectedTabID
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            icon = try container.decode(String.self, forKey: .icon)
+            // Las versiones anteriores solo guardaban un color.
+            if let theme = try container.decodeIfPresent(SpaceTheme.self, forKey: .theme) {
+                self.theme = theme
+            } else {
+                let color = try container.decodeIfPresent(SpaceColor.self, forKey: .color) ?? .navy
+                theme = .dark(from: color)
+            }
+            pinned = try container.decode([ItemRecord].self, forKey: .pinned)
+            tabs = try container.decode([TabRecord].self, forKey: .tabs)
+            selectedTabID = try container.decodeIfPresent(UUID.self, forKey: .selectedTabID)
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(name, forKey: .name)
+            try container.encode(icon, forKey: .icon)
+            try container.encode(theme, forKey: .theme)
+            try container.encode(pinned, forKey: .pinned)
+            try container.encode(tabs, forKey: .tabs)
+            try container.encodeIfPresent(selectedTabID, forKey: .selectedTabID)
+        }
     }
 
     public var favorites: [TabRecord]

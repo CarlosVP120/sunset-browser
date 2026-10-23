@@ -8,6 +8,7 @@ final class FakePage: WebPage {
     let view = NSView()
     var onChange: (@MainActor (WebPageSnapshot) -> Void)?
     var interactionState: Any? { "historial" }
+    var zoom: Double = 1
     private(set) var loadedURLs: [URL] = []
     private(set) var restoredState: Any?
 
@@ -117,6 +118,89 @@ final class BrowserTests: XCTestCase {
         XCTAssertEqual(engine.pages.count, 1)
     }
 
+    func testDragAndDropMovesTabsBetweenSections() {
+        let (browser, _) = makeBrowser()
+        let a = browser.openTab(URL(string: "https://a.com"))
+        let b = browser.openTab(URL(string: "https://b.com"))
+        let c = browser.openTab(URL(string: "https://c.com"))
+        XCTAssertEqual(browser.activeSpace.tabs.map(\.id), [c.id, b.id, a.id])
+
+        // Bajar «c» debajo de «a» dentro de la misma lista.
+        browser.move(c, to: .today(3))
+        XCTAssertEqual(browser.activeSpace.tabs.map(\.id), [b.id, a.id, c.id])
+
+        let folder = browser.newFolder(named: "Coding")
+        browser.move(a, to: .folder(folder, 0))
+        browser.move(b, to: .favorites(0))
+        browser.move(c, to: .pinned(0))
+        XCTAssertEqual(folder.tabs.map(\.id), [a.id])
+        XCTAssertEqual(browser.favorites.map(\.id), [b.id])
+        XCTAssertEqual(browser.activeSpace.pinned.map(\.id), [c.id, folder.id])
+
+        browser.move(folder, toPinnedIndex: 0)
+        XCTAssertEqual(browser.activeSpace.pinned.map(\.id), [folder.id, c.id])
+    }
+
+    func testCommandBarSuggestsOpenTabsHistoryAndCommands() {
+        let (browser, _) = makeBrowser()
+        let tab = browser.openTab(URL(string: "https://github.com"))
+        browser.history.record(url: URL(string: "http://localhost:3005/")!, title: "EQIDIS Facturación")
+        browser.openTab(URL(string: "https://apple.com"))
+
+        let tabs = browser.suggestions(for: "git", mode: .newTab, searchSuggestions: [])
+        XCTAssertTrue(tabs.contains { $0.action == .switchToTab(tab.id) })
+
+        let history = browser.suggestions(for: "eqidis", mode: .newTab, searchSuggestions: [])
+        XCTAssertEqual(history.first { $0.id.hasPrefix("history:") }?.detail, "localhost:3005")
+
+        let commands = browser.suggestions(for: "copiar", mode: .currentTab, searchSuggestions: [])
+        XCTAssertTrue(commands.contains { $0.action == .command(.copyURL) })
+
+        let search = browser.suggestions(for: "mejor navegador", mode: .newTab, searchSuggestions: ["mejor navegador mac"])
+        XCTAssertEqual(search.first?.detail, "Buscar en Google")
+        XCTAssertTrue(search.contains { $0.title == "mejor navegador mac" })
+    }
+
+    func testCommandBarOpensInNewTabOrCurrentTab() {
+        let (browser, _) = makeBrowser()
+        let current = browser.openTab(URL(string: "https://a.com"))
+        let url = URL(string: "https://b.com")!
+
+        browser.perform(Suggestion(id: "x", title: "b", action: .open(url)), mode: .currentTab)
+        XCTAssertEqual(browser.activeSpace.tabs.count, 1)
+        XCTAssertEqual(current.page.map { ($0 as! FakePage).loadedURLs.last }, url)
+
+        browser.newTab()
+        XCTAssertEqual(browser.commandBar, .newTab)
+        browser.perform(Suggestion(id: "x", title: "b", action: .open(url)), mode: .newTab)
+        XCTAssertNil(browser.commandBar)
+        XCTAssertEqual(browser.activeSpace.tabs.count, 2)
+    }
+
+    func testImportsArcThemeColors() {
+        let customInfo: [String: Any] = ["windowTheme": [
+            "background": ["single": ["_0": [
+                "contentOverBackgroundAppearance": "dark",
+                "style": ["color": ["_0": ["blendedSingleColor": ["_0": [
+                    "modifiers": ["overlay": "grain", "noiseFactor": 0.3],
+                    "color": ["red": 0.1, "green": 0.2, "blue": 0.3, "alpha": 1.0],
+                ]]]]],
+            ]]],
+            "semanticColorPalette": ["appearanceBased": ["dark": [
+                "hover": ["red": 0.34, "green": 0.4, "blue": 0.5, "alpha": 0.48],
+                "focus": ["red": 0.27, "green": 0.34, "blue": 0.45, "alpha": 0.8],
+            ]]],
+        ]]
+
+        let theme = ArcImporter.theme(from: customInfo, fallback: .ember)
+
+        XCTAssertEqual(theme.background, [SpaceColor(red: 0.1, green: 0.2, blue: 0.3)])
+        XCTAssertEqual(theme.grain, 0.3)
+        XCTAssertTrue(theme.isDark)
+        XCTAssertEqual(theme.hover, SpaceColor(red: 0.34, green: 0.4, blue: 0.5, alpha: 0.48))
+        XCTAssertEqual(theme.focus.alpha, 0.8)
+    }
+
     func testImportsArcSidebar() throws {
         let json = """
         {"sidebar": {"containers": [{"global": {}}, {
@@ -145,7 +229,7 @@ final class BrowserTests: XCTestCase {
         let space = try XCTUnwrap(snapshot.spaces.first)
         XCTAssertEqual(space.name, "Life")
         XCTAssertEqual(space.icon, "globe.americas")
-        XCTAssertEqual(space.color, SpaceColor(red: 0.1, green: 0.2, blue: 0.3))
+        XCTAssertEqual(space.theme.background, [SpaceColor(red: 0.1, green: 0.2, blue: 0.3)])
         guard case .folder(let folder) = space.pinned.first else { return XCTFail("Se esperaba una carpeta") }
         XCTAssertEqual(folder.name, "Coding")
         XCTAssertEqual(folder.tabs.map(\.title), ["Mi repo"])

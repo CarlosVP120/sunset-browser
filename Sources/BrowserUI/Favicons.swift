@@ -48,29 +48,36 @@ public final class FaviconCache {
     }
 }
 
-/// Icono del sitio de una pestaña.
+/// Icono de un sitio.
 public struct FaviconView: View {
-    let tab: BrowserTab
+    let pageURL: URL?
+    let faviconURL: URL?
     var size: CGFloat
 
-    public init(tab: BrowserTab, size: CGFloat = 16) {
-        self.tab = tab
+    public init(pageURL: URL?, faviconURL: URL? = nil, size: CGFloat = 16) {
+        self.pageURL = pageURL
+        self.faviconURL = faviconURL
         self.size = size
+    }
+
+    public init(tab: BrowserTab, size: CGFloat = 16) {
+        self.init(pageURL: tab.url, faviconURL: tab.faviconURL, size: size)
     }
 
     public var body: some View {
         let cache = FaviconCache.shared
         Group {
-            if let host = tab.url?.host(), let image = cache.image(for: host) {
+            if let host = pageURL?.host(), let image = cache.image(for: host) {
                 Image(nsImage: image).resizable().interpolation(.high)
+                    .transition(.opacity)
             } else {
                 Image(systemName: "globe").resizable().foregroundStyle(Theme.secondaryText)
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-        .task(id: "\(tab.url?.host() ?? "")|\(tab.faviconURL?.absoluteString ?? "")") {
-            await cache.load(pageURL: tab.url, iconURL: tab.faviconURL)
+        .task(id: "\(pageURL?.host() ?? "")|\(faviconURL?.absoluteString ?? "")") {
+            await cache.load(pageURL: pageURL, iconURL: faviconURL)
         }
     }
 }

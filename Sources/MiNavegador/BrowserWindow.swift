@@ -4,35 +4,92 @@ import BrowserEngine
 import BrowserUI
 import SidebarFeature
 import ToolbarFeature
+import CommandBarFeature
 
 struct BrowserWindow: View {
     let browser: Browser
+    /// Barra lateral flotante al acercar el ratón al borde izquierdo con la barra oculta.
+    @State private var isPeekingSidebar = false
 
     var body: some View {
-        HStack(spacing: 0) {
-            if browser.showsSidebar {
-                SidebarView(browser: browser)
-                    .frame(width: Theme.sidebarWidth)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
+        let theme = browser.activeSpace.theme
 
-            VStack(spacing: 0) {
-                if browser.showsToolbar {
-                    ToolbarView(browser: browser)
-                        .environment(\.colorScheme, .dark)
+        ZStack(alignment: .topLeading) {
+            HStack(spacing: 0) {
+                if browser.showsSidebar {
+                    SidebarView(browser: browser)
+                        .frame(width: Theme.sidebarWidth)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                 }
 
-                WebContentArea(browser: browser)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
-                    .padding(.top, browser.showsToolbar ? 0 : 6)
-                    .padding(.leading, browser.showsSidebar ? 0 : 6)
-                    .padding([.trailing, .bottom], 6)
+                VStack(spacing: 0) {
+                    if browser.showsToolbar {
+                        ToolbarView(browser: browser)
+                            .environment(\.colorScheme, theme.isDark ? .dark : .light)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    WebContentArea(browser: browser)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                        .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                        .overlay(alignment: .top) {
+                            ZoomIndicatorView(browser: browser).padding(.top, 10)
+                        }
+                        .padding(.top, browser.showsToolbar ? 0 : 6)
+                        .padding(.leading, browser.showsSidebar ? 0 : 6)
+                        .padding([.trailing, .bottom], 6)
+                }
+            }
+
+            if !browser.showsSidebar {
+                peekingSidebar
+            }
+
+            if let mode = browser.commandBar {
+                CommandBarView(browser: browser, mode: mode)
+                    .id(mode)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.98, anchor: .top).combined(with: .opacity)
+                    ))
+                    .zIndex(10)
             }
         }
-        .background(SpaceBackground(color: browser.activeSpace.color))
+        .environment(\.spaceTheme, theme)
+        .background(SpaceBackground(theme: theme))
         .background(WindowConfigurator())
         .ignoresSafeArea()
+        .animation(Theme.spring, value: browser.showsSidebar)
+        .animation(Theme.spring, value: browser.showsToolbar)
+        .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
+        .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
+    }
+
+    @ViewBuilder
+    private var peekingSidebar: some View {
+        // Franja invisible en el borde: al tocarla aparece la barra lateral flotante.
+        Color.clear
+            .frame(width: 8)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onHover { if $0 { withAnimation(Theme.spring) { isPeekingSidebar = true } } }
+
+        if isPeekingSidebar {
+            SidebarView(browser: browser)
+                .frame(width: Theme.sidebarWidth)
+                .background(SpaceBackground(theme: browser.activeSpace.theme))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.35), radius: 24, x: 6)
+                .padding(.vertical, 6)
+                .padding(.leading, 6)
+                .onHover { if !$0 { withAnimation(Theme.spring) { isPeekingSidebar = false } } }
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                .zIndex(5)
+        }
     }
 }
 

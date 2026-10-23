@@ -9,7 +9,7 @@ struct BrowserCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Nueva pestaña") { browser.newTab() }
                 .keyboardShortcut("t")
-            Button("Abrir ubicación") { browser.requestURLFocus() }
+            Button("Abrir ubicación") { browser.editCurrentTab() }
                 .keyboardShortcut("l")
             Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
@@ -43,6 +43,20 @@ struct BrowserCommands: Commands {
             }
             .keyboardShortcut("t", modifiers: [.command, .option])
             Divider()
+        }
+
+        CommandGroup(after: .toolbar) {
+            Button("Acercar") { browser.zoomIn() }
+                .keyboardShortcut("+")
+            Button("Alejar") { browser.zoomOut() }
+                .keyboardShortcut("-")
+            Button("Tamaño real") { browser.resetZoom() }
+                .keyboardShortcut("0")
+            Divider()
+        }
+
+        CommandGroup(after: .importExport) {
+            Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
         }
 
         CommandMenu("Navegación") {

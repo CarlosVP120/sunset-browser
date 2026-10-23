@@ -77,7 +77,7 @@ public enum ArcImporter {
                 id: uuid(space["id"]),
                 name: space["title"] as? String ?? "Espacio",
                 icon: icon(from: customInfo),
-                color: color(from: customInfo) ?? SpaceColor.palette[index % SpaceColor.palette.count],
+                theme: theme(from: customInfo, fallback: SpaceColor.palette[index % SpaceColor.palette.count]),
                 pinned: children(of: containerID("pinned")).compactMap(itemRecord),
                 tabs: children(of: containerID("unpinned")).compactMap(tabRecord),
                 selectedTabID: nil
@@ -111,24 +111,59 @@ public enum ArcImporter {
         return "circle.grid.2x2"
     }
 
-    /// El primer color con componentes RGB que aparezca en el tema del espacio.
-    private static func color(from customInfo: [String: Any]?) -> SpaceColor? {
-        func search(_ value: Any) -> SpaceColor? {
-            if let dict = value as? [String: Any] {
-                if let red = dict["red"] as? Double, let green = dict["green"] as? Double, let blue = dict["blue"] as? Double {
-                    return SpaceColor(red: red, green: green, blue: blue)
-                }
-                for key in dict.keys.sorted() {
-                    if key == "semanticColorPalette" { continue }
-                    if let found = search(dict[key]!) { return found }
-                }
-            } else if let array = value as? [Any] {
-                for element in array {
-                    if let found = search(element) { return found }
-                }
-            }
-            return nil
+    /// Convierte el `windowTheme` de Arc: colores de fondo, grano y paleta de hover/selección.
+    static func theme(from customInfo: [String: Any]?, fallback: SpaceColor) -> SpaceTheme {
+        let windowTheme = customInfo?["windowTheme"] as? [String: Any] ?? [:]
+        let background = windowTheme["background"] ?? [:]
+
+        let backgroundColors = colors(in: background)
+        let primaryPalette = windowTheme["primaryColorPalette"] as? [String: Any]
+        let base = backgroundColors.first ?? primaryPalette.flatMap { color($0["shaded"]) } ?? fallback
+
+        let isDark = firstValue(forKey: "contentOverBackgroundAppearance", in: background) as? String != "light"
+        var theme = SpaceTheme.dark(from: base, grain: firstValue(forKey: "noiseFactor", in: background) as? Double ?? 0)
+        theme.background = backgroundColors.isEmpty ? [base] : backgroundColors
+        theme.isDark = isDark
+
+        let palettes = (windowTheme["semanticColorPalette"] as? [String: Any])?["appearanceBased"] as? [String: Any]
+        if let palette = palettes?[isDark ? "dark" : "light"] as? [String: Any] {
+            theme.hover = color(palette["hover"]) ?? theme.hover
+            theme.focus = color(palette["focus"]) ?? theme.focus
+            theme.title = color(palette["title"]) ?? theme.title
+            theme.subtitle = color(palette["subtitle"]) ?? theme.subtitle
+            theme.accent = color(palette["foregroundSecondary"]) ?? theme.accent
         }
-        return (customInfo?["windowTheme"]).flatMap(search)
+        return theme
+    }
+
+    private static func color(_ value: Any?) -> SpaceColor? {
+        guard let dict = value as? [String: Any],
+              let red = dict["red"] as? Double, let green = dict["green"] as? Double, let blue = dict["blue"] as? Double
+        else { return nil }
+        return SpaceColor(red: red, green: green, blue: blue, alpha: dict["alpha"] as? Double ?? 1)
+    }
+
+    /// Todos los colores dentro de un valor, en orden (los degradados guardan sus colores en listas).
+    private static func colors(in value: Any) -> [SpaceColor] {
+        if let color = color(value) { return [color] }
+        if let array = value as? [Any] { return array.flatMap(colors(in:)) }
+        if let dict = value as? [String: Any] {
+            return dict.keys.sorted().flatMap { colors(in: dict[$0]!) }
+        }
+        return []
+    }
+
+    private static func firstValue(forKey key: String, in value: Any) -> Any? {
+        if let dict = value as? [String: Any] {
+            if let found = dict[key] { return found }
+            for nested in dict.values {
+                if let found = firstValue(forKey: key, in: nested) { return found }
+            }
+        } else if let array = value as? [Any] {
+            for nested in array {
+                if let found = firstValue(forKey: key, in: nested) { return found }
+            }
+        }
+        return nil
     }
 }

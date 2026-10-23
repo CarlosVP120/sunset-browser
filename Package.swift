@@ -18,10 +18,15 @@ let package = Package(
         .target(name: "SidebarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // Barra superior con navegación y dirección.
         .target(name: "ToolbarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
+        // Command Bar (equivalente a ARC_CommandBar): buscar, abrir y ejecutar acciones.
+        .target(name: "CommandBarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // La app: ventana, menús y contenido web.
         .executableTarget(
             name: "MiNavegador",
-            dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI", "SidebarFeature", "ToolbarFeature"]
+            dependencies: [
+                "BrowserEngine", "BrowserCore", "BrowserUI",
+                "SidebarFeature", "ToolbarFeature", "CommandBarFeature",
+            ]
         ),
         .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore"]),
     ]
