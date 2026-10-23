@@ -177,6 +177,8 @@ public enum BrowserImporter {
             }
         }
         if data.bookmarks.count > 0 {
+            // Con espacios importados (Arc) se queda activo el del usuario, no el de marcadores.
+            let activeSpace = data.sidebar == nil ? nil : browser.activeSpace
             browser.addImportedSpace(
                 named: source == .arc ? "Marcadores de Arc" : source.name,
                 icon: "bookmark",
@@ -184,6 +186,7 @@ public enum BrowserImporter {
                 pinned: data.bookmarks.loose.map { ($0.title, $0.url) },
                 folders: data.bookmarks.folders.map { folder in (folder.name, folder.bookmarks.map { ($0.title, $0.url) }) }
             )
+            if let activeSpace { browser.activate(activeSpace) }
             summary.bookmarks = data.bookmarks.count
         }
         if !data.history.isEmpty {
