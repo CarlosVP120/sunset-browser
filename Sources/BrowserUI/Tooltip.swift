@@ -11,19 +11,17 @@ public extension View {
 private struct TooltipModifier: ViewModifier {
     let text: String
     let shortcut: String?
-    @State private var frame: CGRect = .zero
+    /// La posición se guarda en una caja (no en @State): cambia en cada fotograma mientras la barra
+    /// lateral se anima, y como @State obligaba a redibujar cada fila en cada fotograma.
+    @State private var box = FrameBox()
     @State private var id = UUID()
 
     func body(content: Content) -> some View {
         content
-            .background(GeometryReader { proxy in
-                Color.clear
-                    .onAppear { frame = proxy.frame(in: .global) }
-                    .onChange(of: proxy.frame(in: .global)) { _, newFrame in frame = newFrame }
-            })
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.frame = $0 }
             .onHover { hovering in
                 if hovering {
-                    TooltipController.shared.show(text: text, shortcut: shortcut, below: frame, owner: id)
+                    TooltipController.shared.show(text: text, shortcut: shortcut, below: box.frame, owner: id)
                 } else {
                     TooltipController.shared.hide(owner: id)
                 }
@@ -33,6 +31,11 @@ private struct TooltipModifier: ViewModifier {
             .onDisappear { TooltipController.shared.hide(owner: id) }
             .accessibilityHint(shortcut.map { "\(text) (\($0))" } ?? text)
     }
+}
+
+/// Una posición que no redibuja la vista al cambiar.
+final class FrameBox {
+    var frame: CGRect = .zero
 }
 
 /// Muestra un único tooltip flotante en una ventana propia, para que nunca quede recortado

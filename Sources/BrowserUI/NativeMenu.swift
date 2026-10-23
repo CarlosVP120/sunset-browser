@@ -81,8 +81,12 @@ private final class ClosureMenuItem: NSMenuItem {
 
 public extension View {
     /// Menú contextual nativo (clic derecho o ⌃clic). `entries` se evalúa al abrirlo.
+    ///
+    /// La fila solo anota dónde está; un único `ContextMenuCatcher` en la ventana atiende el clic
+    /// derecho. (Antes cada fila llevaba su propia vista de AppKit: con decenas de pestañas, mover
+    /// todas esas vistas en cada fotograma hacía que las animaciones de la barra fueran a saltos.)
     func nativeContextMenu(_ entries: @escaping @MainActor () -> [MenuEntry]) -> some View {
-        overlay(NativeMenuArea(trigger: .contextClick, entries: entries))
+        modifier(ContextMenuRegion(entries: entries))
     }
 
     /// Convierte la vista en un botón que abre un menú nativo debajo de ella al hacer clic.
@@ -138,5 +142,82 @@ private struct NativeMenuArea: NSViewRepresentable {
         }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    }
+}
+
+// MARK: - Un solo receptor de clic derecho para toda la ventana
+
+/// Zonas con menú contextual, en coordenadas de la ventana (origen arriba a la izquierda).
+@MainActor
+final class ContextMenuRegistry {
+    static let shared = ContextMenuRegistry()
+
+    struct Region {
+        var frame: CGRect
+        var entries: @MainActor () -> [MenuEntry]
+    }
+
+    private var regions: [UUID: Region] = [:]
+
+    func set(_ id: UUID, frame: CGRect, entries: @escaping @MainActor () -> [MenuEntry]) {
+        regions[id] = Region(frame: frame, entries: entries)
+    }
+
+    func remove(_ id: UUID) {
+        regions[id] = nil
+    }
+
+    /// La zona más pequeña bajo el punto (un icono de espacio antes que la barra entera).
+    func region(at point: CGPoint) -> Region? {
+        regions.values.filter { $0.frame.contains(point) }
+            .min { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+    }
+}
+
+private struct ContextMenuRegion: ViewModifier {
+    let entries: @MainActor () -> [MenuEntry]
+    @State private var id = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                ContextMenuRegistry.shared.set(id, frame: frame, entries: entries)
+            }
+            .onDisappear { ContextMenuRegistry.shared.remove(id) }
+    }
+}
+
+/// Va una vez sobre toda la ventana: si el clic derecho cae en una zona con menú, lo abre; si no,
+/// lo deja pasar (por ejemplo, al menú contextual de la página web).
+public struct ContextMenuCatcher: NSViewRepresentable {
+    public init() {}
+
+    public func makeNSView(context: Context) -> CatcherView { CatcherView() }
+    public func updateNSView(_ view: CatcherView, context: Context) {}
+
+    public final class CatcherView: NSView {
+        override public func hitTest(_ point: NSPoint) -> NSView? {
+            guard let event = NSApp.currentEvent,
+                  event.type == .rightMouseDown || (event.type == .leftMouseDown && event.modifierFlags.contains(.control)),
+                  region(for: event) != nil
+            else { return nil }
+            return super.hitTest(point)
+        }
+
+        private func region(for event: NSEvent) -> ContextMenuRegistry.Region? {
+            guard let contentView = window?.contentView else { return nil }
+            let local = contentView.convert(event.locationInWindow, from: nil)
+            let point = CGPoint(x: local.x, y: contentView.isFlipped ? local.y : contentView.bounds.height - local.y)
+            return ContextMenuRegistry.shared.region(at: point)
+        }
+
+        private func showMenu(for event: NSEvent) {
+            guard let region = region(for: event) else { return }
+            NSMenu.popUpContextMenu(.build(region.entries()), with: event, for: self)
+        }
+
+        override public func rightMouseDown(with event: NSEvent) { showMenu(for: event) }
+        override public func mouseDown(with event: NSEvent) { showMenu(for: event) }
+        override public func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     }
 }

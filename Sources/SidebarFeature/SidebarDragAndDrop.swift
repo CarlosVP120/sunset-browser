@@ -181,35 +181,46 @@ private struct SidebarDropTargetModifier: ViewModifier {
     let makeDelegate: (CGSize, Binding<DropZone?>) -> SidebarDropDelegate
     let horizontal: Bool
     @State private var zone: DropZone?
-    @State private var size: CGSize = .zero
+    /// Tamaño y posición en una caja, no en @State: cambian en cada fotograma mientras la barra
+    /// se anima, y como @State obligaban a redibujar cada fila en cada fotograma.
+    @State private var box = SizeBox()
     @State private var id = UUID()
     @Environment(SidebarDrag.self) private var drag
+
+    final class SizeBox {
+        var size: CGSize = .zero
+    }
 
     func body(content: Content) -> some View {
         let dragZone = drag.hovered?.id == id ? drag.hovered?.zone : nil
         content
-            .background(GeometryReader { proxy in
-                let frame = proxy.frame(in: .named(SidebarDrag.space))
-                Color.clear
-                    .onAppear {
-                        size = proxy.size
-                        register(frame)
-                    }
-                    .onChange(of: frame) { _, newFrame in
-                        size = newFrame.size
-                        register(newFrame)
-                    }
-            })
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(SidebarDrag.space)) } action: { register($0) }
             .overlay(DropIndicator(zone: zone ?? dragZone, horizontal: horizontal))
             // Lo que llega desde fuera de la app (enlaces de otras apps).
-            .onDrop(of: [.text, .url], delegate: makeDelegate(size, $zone))
+            .onDrop(of: [.text, .url], delegate: LiveDropDelegate(box: box, zone: $zone, make: makeDelegate))
             .onDisappear { drag.unregister(id) }
     }
 
     private func register(_ frame: CGRect) {
+        box.size = frame.size
         let makeDelegate = makeDelegate
         drag.register(id, frame: frame) { size in makeDelegate(size, .constant(nil)) }
     }
+}
+
+/// Crea el delegado con el tamaño actual en cada evento (el tamaño vive en una caja que no redibuja).
+private struct LiveDropDelegate: DropDelegate {
+    let box: SidebarDropTargetModifier.SizeBox
+    @Binding var zone: DropZone?
+    let make: (CGSize, Binding<DropZone?>) -> SidebarDropDelegate
+
+    private var current: SidebarDropDelegate { make(box.size, $zone) }
+
+    func validateDrop(info: DropInfo) -> Bool { current.validateDrop(info: info) }
+    func dropEntered(info: DropInfo) { current.dropEntered(info: info) }
+    func dropUpdated(info: DropInfo) -> DropProposal? { current.dropUpdated(info: info) }
+    func dropExited(info: DropInfo) { current.dropExited(info: info) }
+    func performDrop(info: DropInfo) -> Bool { current.performDrop(info: info) }
 }
 
 // MARK: - Arrastre dentro de la barra lateral

@@ -110,6 +110,8 @@ struct BrowserWindow: View {
                     .zIndex(10)
             }
         }
+        // Un único receptor de clic derecho para los menús contextuales de toda la ventana.
+        .overlay { ContextMenuCatcher() }
         .coordinateSpace(name: Self.windowSpace)
         .onPreferenceChange(ContentFrameKey.self) { contentFrame = $0 }
         .environment(\.spaceTheme, theme)
