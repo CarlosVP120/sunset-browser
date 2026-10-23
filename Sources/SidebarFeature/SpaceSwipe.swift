@@ -25,6 +25,8 @@ final class SpaceSwipeView: NSView {
     private enum Axis { case undecided, horizontal, vertical }
     private var axis = Axis.undecided
     private var distance: CGFloat = 0
+    /// Recorrido mientras aún no se sabe si el gesto es horizontal o vertical.
+    private var pending = CGSize.zero
     private var didSwitch = false
     /// Recorrido de los dedos (en puntos) para pasar al siguiente espacio.
     private static let threshold: CGFloat = 40
@@ -58,32 +60,68 @@ final class SpaceSwipeView: NSView {
             }
             axis = .undecided
             distance = 0
+            pending = .zero
             didSwitch = false
+            // Con «Deslizar entre páginas» activado (lo normal), AppKit reserva el resto de un
+            // gesto horizontal para el seguimiento de deslizamiento: hay que pedirlo aquí, con el
+            // evento de inicio, como hace Safari para atrás/adelante.
+            if event.phase == .began, NSEvent.isSwipeTrackingFromScrollEventsEnabled,
+               abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) {
+                trackSwipe(event, browser: browser)
+                return nil
+            }
         }
-        if axis == .undecided, abs(event.scrollingDeltaX) + abs(event.scrollingDeltaY) > 0.5 {
-            axis = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) * 1.3 ? .horizontal : .vertical
+        // Dirección física de los dedos (positivo = hacia la derecha), con o sin scroll natural.
+        let dx = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
+        if axis == .undecided {
+            // Se decide tras unos puntos de recorrido: el primer evento del trackpad suele traer
+            // un poco de movimiento vertical aunque el gesto sea horizontal.
+            pending.width += abs(event.scrollingDeltaX)
+            pending.height += abs(event.scrollingDeltaY)
+            distance += dx
+            guard pending.width + pending.height >= 6 else { return event }
+            axis = pending.width > pending.height * 1.2 ? .horizontal : .vertical
+        } else {
+            distance += dx
         }
         guard axis == .horizontal else { return event }
 
-        // Dirección física de los dedos (positivo = hacia la derecha), con o sin scroll natural.
-        distance += event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
         if !didSwitch, abs(distance) >= Self.threshold {
             didSwitch = true
             // Dedos hacia la izquierda: el siguiente espacio entra por la derecha.
-            let step = distance < 0 ? 1 : -1
-            if let index = browser.spaces.firstIndex(where: { $0.id == browser.activeSpaceID }),
-               browser.spaces.indices.contains(index + step) {
-                withAnimation(Theme.spring) { browser.activate(browser.spaces[index + step]) }
-            } else {
-                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-            }
+            switchSpace(by: distance < 0 ? 1 : -1, browser: browser)
         }
         // El evento sigue su camino: si se descarta el inicio del gesto, AppKit deja de mandar el
         // resto. La lista no se mueve en horizontal (no tiene rebote lateral).
         return event
     }
 
+    private func switchSpace(by step: Int, browser: Browser) {
+        if let index = browser.spaces.firstIndex(where: { $0.id == browser.activeSpaceID }),
+           browser.spaces.indices.contains(index + step) {
+            withAnimation(Theme.spring) { browser.activate(browser.spaces[index + step]) }
+        } else {
+            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        }
+    }
+
+    /// Seguimiento del sistema: `gestureAmount` positivo es dedos a la derecha (espacio anterior).
+    private func trackSwipe(_ event: NSEvent, browser: Browser) {
+        let index = browser.spaces.firstIndex { $0.id == browser.activeSpaceID } ?? 0
+        let hasPrevious = index > 0, hasNext = index < browser.spaces.count - 1
+        var switched = false
+        event.trackSwipeEvent(options: [.lockDirection, .clampGestureAmount],
+                              dampenAmountThresholdMin: hasNext ? -1 : 0,
+                              max: hasPrevious ? 1 : 0) { [weak self] amount, phase, _, _ in
+            // Al soltar con recorrido suficiente el sistema manda `.ended` (si no, `.cancelled`).
+            guard phase == .ended, !switched, amount != 0, let self else { return }
+            switched = true
+            MainActor.assumeIsolated { self.switchSpace(by: amount > 0 ? -1 : 1, browser: browser) }
+        }
+    }
+
     deinit {
         if let monitor { NSEvent.removeMonitor(monitor) }
     }
 }
+
