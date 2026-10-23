@@ -34,6 +34,10 @@ SetFile -a C "/Volumes/$NAME" 2>/dev/null || true
 bless --folder "/Volumes/$NAME" --openfolder "/Volumes/$NAME" 2>/dev/null || true
 
 # 4. Finder: ventana sin barras, iconos grandes y el fondo (las posiciones coinciden con el dibujo).
+# En CI (GitHub Actions) no hay Finder al que automatizar: el disco queda sin ese diseño.
+if [[ -n "${CI:-}" ]]; then
+    echo "CI: se omite el diseño de la ventana de Finder"
+else
 osascript <<APPLESCRIPT
 tell application "Finder"
     tell disk "$NAME"
@@ -64,6 +68,7 @@ tell application "Finder"
     end tell
 end tell
 APPLESCRIPT
+fi
 sync
 hdiutil detach -quiet "/Volumes/$NAME"
 

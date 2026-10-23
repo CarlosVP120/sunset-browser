@@ -62,7 +62,7 @@ final class FakeEngine: WebEngine {
 final class BrowserTests: XCTestCase {
     private func makeBrowser(store: SidebarStore? = nil) -> (Browser, FakeEngine) {
         let engine = FakeEngine()
-        let browser = Browser(engine: engine, store: store, importFromArc: false, startsBackgroundWork: false)
+        let browser = Browser(engine: engine, store: store, historyFileURL: nil, importFromArc: false, startsBackgroundWork: false)
         return (browser, engine)
     }
 
@@ -171,13 +171,13 @@ final class BrowserTests: XCTestCase {
     func testCommandBarSuggestsOpenTabsHistoryAndCommands() {
         let (browser, _) = makeBrowser()
         let tab = browser.openTab(URL(string: "https://github.com"))
-        browser.history.record(url: URL(string: "http://localhost:3005/")!, title: "EQIDIS Facturación")
+        browser.history.record(url: URL(string: "http://localhost:3005/")!, title: "Facturación local")
         browser.openTab(URL(string: "https://apple.com"))
 
         let tabs = browser.suggestions(for: "git", mode: .newTab, searchSuggestions: [])
         XCTAssertTrue(tabs.contains { $0.action == .switchToTab(tab.id) })
 
-        let history = browser.suggestions(for: "eqidis", mode: .newTab, searchSuggestions: [])
+        let history = browser.suggestions(for: "factura", mode: .newTab, searchSuggestions: [])
         XCTAssertEqual(history.first { $0.id.hasPrefix("history:") }?.detail, "localhost:3005")
 
         let commands = browser.suggestions(for: "copiar", mode: .currentTab, searchSuggestions: [])

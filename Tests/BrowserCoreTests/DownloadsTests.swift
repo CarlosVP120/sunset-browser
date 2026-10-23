@@ -12,7 +12,7 @@ final class DownloadsTests: XCTestCase {
 
     private func record(_ name: String, state: DownloadRecord.State, daysAgo: Double = 0) -> DownloadRecord {
         DownloadRecord(id: UUID(), filename: name, fileURL: URL(filePath: "/tmp/no-existe/\(name)"),
-                       sourceURL: URL(string: "https://www.eqidis.com/archivo"),
+                       sourceURL: URL(string: "https://www.example.com/archivo"),
                        date: Date().addingTimeInterval(-daysAgo * 86_400), totalBytes: nil, state: state)
     }
 
@@ -23,7 +23,7 @@ final class DownloadsTests: XCTestCase {
 
         XCTAssertEqual(manager.items.map(\.state), [.finished, .failed])
         XCTAssertNil(manager.overallProgress)
-        XCTAssertEqual(manager.items[0].sourceHost, "eqidis.com")
+        XCTAssertEqual(manager.items[0].sourceHost, "example.com")
         XCTAssertFalse(manager.items[0].fileExists)
     }
 

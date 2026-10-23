@@ -50,7 +50,7 @@ struct FileThumbnail: View {
     }
 }
 
-/// Tipo de archivo, para el filtro y el subtítulo ("PDF de eqidis.com").
+/// Tipo de archivo, para el filtro y el subtítulo ("PDF de example.com").
 enum FileKind: String, CaseIterable, Identifiable {
     case all, images, videos, pdfs, documents, archives, other
 
@@ -95,7 +95,7 @@ enum FileKind: String, CaseIterable, Identifiable {
 }
 
 extension DownloadRecord {
-    /// "PDF de eqidis.com", "Imagen de sanity.io"… o el estado si no ha terminado.
+    /// "PDF de example.com", "Imagen de sanity.io"… o el estado si no ha terminado.
     var subtitle: String {
         switch state {
         case .failed: return "Error en la descarga"

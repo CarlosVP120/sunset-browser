@@ -1,0 +1,33 @@
+name: Release
+
+# Push a tag like v0.2.0 to build the universal DMG and publish a draft release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build DMG
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+
+      - name: Test
+        run: swift test
+
+      - name: Build universal DMG
+        run: ./scripts/make-dmg.sh
+
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/Sunset-Browser.dmg \
+            --draft --title "Sunset Browser ${GITHUB_REF_NAME#v}" --generate-notes

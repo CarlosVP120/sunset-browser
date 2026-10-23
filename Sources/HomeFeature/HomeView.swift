@@ -66,7 +66,7 @@ public struct HomeView: View {
         }
     }
 
-    /// "Buenos días, Carlos".
+    /// "Buenos días, Alex".
     static func greeting(now: Date = Date()) -> String {
         let hour = Calendar.current.component(.hour, from: now)
         let salutation = switch hour {
@@ -74,7 +74,9 @@ public struct HomeView: View {
         case 12..<20: "Buenas tardes"
         default: "Buenas noches"
         }
-        let firstName = NSFullUserName().split(separator: " ").first.map(String.init) ?? ""
+        // `SUNSET_USER_NAME` cambia el nombre (para demos y capturas).
+        let fullName = ProcessInfo.processInfo.environment["SUNSET_USER_NAME"] ?? NSFullUserName()
+        let firstName = fullName.split(separator: " ").first.map(String.init) ?? ""
         return firstName.isEmpty ? salutation : "\(salutation), \(firstName)"
     }
 }

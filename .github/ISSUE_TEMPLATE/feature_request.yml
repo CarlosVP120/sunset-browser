@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an idea or something you miss from Arc.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the problem or the workflow, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How should it work?
+      description: If Arc or another browser does this, explain how it worked there (screenshots welcome).
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to help build this

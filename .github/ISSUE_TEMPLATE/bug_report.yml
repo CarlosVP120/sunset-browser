@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Sunset doesn't work as expected.
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please search [existing issues](https://github.com/CarlosVP120/sunset-browser/issues) first.
+        **Security problems** should be reported privately: see the [security policy](https://github.com/CarlosVP120/sunset-browser/security/policy).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a folder in the sidebar
+        2. Hover over…
+        3. See…
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or video
+      description: Drag files here. A short screen recording helps a lot for animation and UI bugs.
+  - type: input
+    id: sunset-version
+    attributes:
+      label: Sunset version
+      description: From Sunset Browser › About, or the commit you built from.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: macOS 26.1
+    validations:
+      required: true
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Mac
+      options:
+        - Apple silicon
+        - Intel
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or crash report
+      description: If Sunset crashed, paste the crash report from Console.app (Crash Reports › Sunset Browser).
+      render: text

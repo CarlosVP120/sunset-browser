@@ -16,8 +16,8 @@ final class LibrarySnapshotTests: XCTestCase {
 
     func testLibraryDownloads() throws {
         let records = [
-            ("csf_gho210920ira_2026-09-2.pdf", "https://eqidis.com/x", 2.0),
-            ("sesión aspeia ti-20260924.mov", "https://skype.com/x", 28),
+            ("factura_2026-09.pdf", "https://example.com/x", 2.0),
+            ("reunión-20260924.mov", "https://skype.com/x", 28),
             ("54c17fead6de8697bb23bea62.jpg", "https://cdn.sanity.io/x", 33),
             ("smtp-credentials.csv", nil, 60),
         ].map { name, source, days in
