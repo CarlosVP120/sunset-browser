@@ -79,6 +79,7 @@ public struct SidebarView: View {
             BottomBar(browser: browser, libraryButton: libraryButton)
         }
         .padding(.horizontal, 8)
+        .background(SpaceSwipeCatcher(browser: browser))
         .coordinateSpace(name: SidebarDrag.space)
         .overlay(alignment: .topLeading) {
             if let ghost = drag.ghost {

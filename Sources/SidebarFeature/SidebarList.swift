@@ -55,6 +55,7 @@ struct SidebarListView: NSViewRepresentable {
         scroll.automaticallyAdjustsContentInsets = false
         scroll.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
         scroll.verticalScrollElasticity = .allowed
+        scroll.horizontalScrollElasticity = .none
         scroll.contentView.postsBoundsChangedNotifications = true
 
         coordinator.controller = controller
