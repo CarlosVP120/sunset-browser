@@ -10,6 +10,7 @@ final class ThemeEditorSnapshotTests: XCTestCase {
     private final class NoEngine: WebEngine {
         func makePage(profile: UUID?) -> WebPage { fatalError("No se usan páginas en las capturas") }
         func removeProfileData(_ profile: UUID) {}
+        func clearBrowsingData(_ kinds: BrowsingData, host: String?) async {}
     }
 
     private func render<V: View>(_ view: V, named name: String) throws -> URL {

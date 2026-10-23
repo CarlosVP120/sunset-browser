@@ -43,3 +43,10 @@ public struct SpaceEditorRequest: Equatable, Sendable {
         self.kind = kind
     }
 }
+
+/// Aviso breve que aparece y se va solo.
+public struct Toast: Equatable, Sendable {
+    public let id = UUID()
+    public let message: String
+    public let symbol: String
+}

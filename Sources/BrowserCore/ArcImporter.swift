@@ -38,7 +38,7 @@ public enum ArcImporter {
             let url = (tab["savedURL"] as? String).flatMap(URL.init(string:))
             let customTitle = item["title"] as? String
             let title = customTitle ?? tab["savedTitle"] as? String ?? ""
-            return .init(id: uuid(item["id"]), url: url, title: title, faviconURL: nil)
+            return .init(id: uuid(item["id"]), url: url, title: title, faviconURL: nil, customTitle: customTitle)
         }
 
         /// Pestañas de una carpeta, aplanando las subcarpetas.

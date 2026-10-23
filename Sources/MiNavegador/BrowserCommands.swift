@@ -38,7 +38,7 @@ struct BrowserCommands: Commands {
             Divider()
             Button("Copiar URL") { browser.perform(.copyURL) }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
-            Button("Copiar URL como Markdown") { browser.copyURLAsMarkdown() }
+            Button("Copiar URL como Markdown") { browser.perform(.copyURLAsMarkdown) }
                 .keyboardShortcut("c", modifiers: [.command, .shift, .option])
         }
 
@@ -73,6 +73,11 @@ struct BrowserCommands: Commands {
             Button("Tamaño real") { browser.resetZoom() }
                 .keyboardShortcut("0")
             Divider()
+        }
+
+        CommandGroup(replacing: .help) {
+            Button("Atajos de teclado") { browser.showsShortcuts = true }
+                .keyboardShortcut("/", modifiers: .command)
         }
 
         CommandGroup(after: .importExport) {

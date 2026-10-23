@@ -1,27 +1,25 @@
 import SwiftUI
 import BrowserCore
 
-/// Resplandor de carga al estilo Apple Intelligence: un gradiente de colores vivos que gira
-/// por el borde de la página, con varias capas de desenfoque para dar profundidad y una
-/// ligera "respiración". Al terminar la carga hace un destello breve y se desvanece.
+/// Haz de luz ("tracing beam") que recorre el borde de la página mientras carga:
+/// una línea fina de un solo color neutro con estela que se desvanece. Al terminar,
+/// el haz se alarga hasta cerrar todo el borde y se apaga.
 public struct PageEdgeGlow: View {
     let tab: BrowserTab?
     var cornerRadius: CGFloat
 
-    @State private var intensity: Double = 0
-    @State private var flash: Double = 0
-    @State private var isAnimating = false
-    @State private var fadeTask: Task<Void, Never>?
+    @State private var startedAt: Date?
+    @State private var finishedAt: Date?
+    @State private var stopTask: Task<Void, Never>?
+    @Environment(\.spaceTheme) private var theme
 
-    /// Paleta tipo Apple Intelligence: azul, morado, rosa, naranja y cian.
-    private static let colors: [Color] = [
-        Color(red: 0.18, green: 0.49, blue: 0.97),
-        Color(red: 0.69, green: 0.32, blue: 0.87),
-        Color(red: 1.00, green: 0.22, blue: 0.37),
-        Color(red: 1.00, green: 0.62, blue: 0.04),
-        Color(red: 0.35, green: 0.78, blue: 0.98),
-        Color(red: 0.18, green: 0.49, blue: 0.97),
-    ]
+    /// Vueltas por segundo.
+    private static let speed = 0.55
+    /// Largo del haz, en fracción del borde.
+    private static let beamLength = 0.2
+    private static let slices = 16
+    private static let finishDuration = 0.35
+    private static let fadeDuration = 0.45
 
     public init(tab: BrowserTab?, cornerRadius: CGFloat = Theme.cornerRadius) {
         self.tab = tab
@@ -29,69 +27,83 @@ public struct PageEdgeGlow: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(paused: !isAnimating)) { context in
-            let time = context.date.timeIntervalSinceReferenceDate
-            let rotation = Angle.degrees(time.truncatingRemainder(dividingBy: 360 / 70) * 70)
-            let breathing = 0.85 + 0.15 * sin(time * 2.6)
-
-            ZStack {
-                // Halo amplio y difuso hacia dentro.
-                edge(lineWidth: 16, blur: 22, rotation: rotation + .degrees(40))
-                    .opacity(0.45 * breathing)
-                // Brillo medio.
-                edge(lineWidth: 6, blur: 7, rotation: rotation)
-                    .opacity(0.75 * breathing)
-                // Filo nítido.
-                edge(lineWidth: 1.6, blur: 0, rotation: rotation - .degrees(25))
-                    .opacity(0.9)
-                // Destello final: el filo se vuelve blanco un instante.
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(.white, lineWidth: 2)
-                    .blur(radius: 3)
-                    .opacity(flash * 0.8)
+        TimelineView(.animation(paused: startedAt == nil)) { context in
+            if let startedAt {
+                beam(at: context.date, startedAt: startedAt)
             }
-            .drawingGroup()
         }
-        .opacity(intensity)
         .allowsHitTesting(false)
         .onChange(of: tab?.isLoading, initial: true) { _, isLoading in update(isLoading: isLoading == true) }
         .onChange(of: tab?.id) {
-            // Al cambiar de pestaña no se anima: se muestra su estado tal cual.
-            fadeTask?.cancel()
-            let isLoading = tab?.isLoading == true
-            intensity = isLoading ? 1 : 0
-            flash = 0
-            isAnimating = isLoading
+            // Al cambiar de pestaña no se anima la salida: se muestra su estado tal cual.
+            stopTask?.cancel()
+            finishedAt = nil
+            startedAt = tab?.isLoading == true ? Date() : nil
         }
     }
 
-    private func edge(lineWidth: CGFloat, blur: CGFloat, rotation: Angle) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .strokeBorder(
-                AngularGradient(colors: Self.colors, center: .center, angle: rotation),
-                lineWidth: lineWidth
-            )
-            .blur(radius: blur)
+    private func beam(at now: Date, startedAt: Date) -> some View {
+        let elapsed = now.timeIntervalSince(startedAt)
+        let head = (elapsed * Self.speed).truncatingRemainder(dividingBy: 1)
+
+        // Al terminar: el haz crece hasta rodear el borde y luego se apaga.
+        var length = Self.beamLength
+        var opacity = min(1, elapsed / 0.25)
+        if let finishedAt {
+            let finishing = now.timeIntervalSince(finishedAt)
+            let grow = min(1, finishing / Self.finishDuration)
+            length += (1 - Self.beamLength) * (1 - pow(1 - grow, 3))
+            opacity *= 1 - min(1, max(0, finishing - Self.finishDuration * 0.8) / Self.fadeDuration)
+        }
+
+        let color = Color(theme.title)
+        // Por fuera del borde de la página (inset negativo): sobre el marco de la ventana.
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).inset(by: -1.5)
+
+        return ZStack {
+            // Rastro tenue de todo el borde.
+            shape.stroke(color.opacity(0.12), lineWidth: 1)
+            // El haz: tramos cada vez más brillantes hacia la cabeza.
+            ForEach(0..<Self.slices, id: \.self) { slice in
+                let sliceLength = length / Double(Self.slices)
+                let end = head - length + sliceLength * Double(slice + 1)
+                let strength = pow(Double(slice + 1) / Double(Self.slices), 2.2)
+                ForEach(Self.segments(from: end - sliceLength, to: end), id: \.self) { segment in
+                    shape.trim(from: segment.lowerBound, to: segment.upperBound)
+                        .stroke(color.opacity(0.9 * strength), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                }
+            }
+            // Un destello pequeño en la cabeza.
+            ForEach(Self.segments(from: head - 0.012, to: head), id: \.self) { segment in
+                shape.trim(from: segment.lowerBound, to: segment.upperBound)
+                    .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .blur(radius: 1.5)
+            }
+            .opacity(finishedAt == nil ? 1 : 0)
+        }
+        .opacity(opacity)
+    }
+
+    /// Un tramo del borde, partido en dos si cruza el punto de inicio.
+    private static func segments(from start: Double, to end: Double) -> [ClosedRange<Double>] {
+        guard end - start < 1 else { return [0...1] }
+        let from = start - floor(start), to = end - floor(start)
+        if to <= 1 { return [from...to] }
+        return [from...1, 0...(to - 1)]
     }
 
     private func update(isLoading: Bool) {
-        fadeTask?.cancel()
+        stopTask?.cancel()
         if isLoading {
-            isAnimating = true
-            flash = 0
-            withAnimation(.easeOut(duration: 0.45)) { intensity = 1 }
-        } else if intensity > 0 {
-            fadeTask = Task { @MainActor in
-                withAnimation(.easeOut(duration: 0.14)) { flash = 1 }
-                try? await Task.sleep(for: .milliseconds(140))
+            if startedAt == nil || finishedAt != nil { startedAt = Date() }
+            finishedAt = nil
+        } else if startedAt != nil, finishedAt == nil {
+            finishedAt = Date()
+            stopTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(Self.finishDuration + Self.fadeDuration + 0.1))
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.9)) {
-                    flash = 0
-                    intensity = 0
-                }
-                try? await Task.sleep(for: .milliseconds(900))
-                guard !Task.isCancelled else { return }
-                isAnimating = false
+                startedAt = nil
+                finishedAt = nil
             }
         }
     }

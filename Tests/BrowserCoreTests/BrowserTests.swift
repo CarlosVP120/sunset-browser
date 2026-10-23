@@ -27,6 +27,9 @@ final class FakePage: WebPage {
     func reloadIgnoringCache() {}
     func find(_ text: String, backwards: Bool) async -> Bool { false }
     func printPage() {}
+    func snapshot() async -> NSImage? { nil }
+    func pageSource() async -> String? { "<html></html>" }
+    func pauseAllMedia() {}
     func stopLoading() {}
 }
 
@@ -37,6 +40,8 @@ final class FakeEngine: WebEngine {
     private(set) var profiles: [UUID?] = []
 
     func removeProfileData(_ profile: UUID) {}
+    private(set) var clearedData: [(BrowsingData, String?)] = []
+    func clearBrowsingData(_ kinds: BrowsingData, host: String?) async { clearedData.append((kinds, host)) }
 
     func makePage(profile: UUID?) -> WebPage {
         profiles.append(profile)

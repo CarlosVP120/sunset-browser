@@ -120,6 +120,15 @@ extension Browser {
         scheduleSave()
     }
 
+    /// Mueve la pestaña a las de Hoy de otro espacio y se va con ella.
+    public func move(_ tab: BrowserTab, toSpace space: Space) {
+        detach(tab)
+        space.tabs.insert(tab, at: 0)
+        space.selectedTabID = tab.id
+        activate(space)
+        scheduleSave()
+    }
+
     // MARK: - Perfiles
 
     public func profileName(_ id: UUID?) -> String {

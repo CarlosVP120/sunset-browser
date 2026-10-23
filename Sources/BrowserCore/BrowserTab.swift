@@ -7,6 +7,8 @@ import BrowserEngine
 public final class BrowserTab: Identifiable {
     public let id: UUID
     public private(set) var title: String
+    /// Nombre puesto a mano (Renombrar pestaña); manda sobre el título de la página.
+    public internal(set) var customTitle: String?
     public private(set) var url: URL?
     public private(set) var faviconURL: URL?
     public private(set) var isLoading = false
@@ -47,6 +49,7 @@ public final class BrowserTab: Identifiable {
 
     /// Texto a mostrar en la barra lateral.
     public var displayTitle: String {
+        if let customTitle, !customTitle.isEmpty { return customTitle }
         if !title.isEmpty { return title }
         return url?.host() ?? "Nueva pestaña"
     }

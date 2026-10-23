@@ -43,6 +43,8 @@ public final class Space: Identifiable {
     public var theme: SpaceTheme
     /// Perfil del espacio (cookies y sesiones propias); `nil` es el predeterminado.
     public internal(set) var profileID: UUID?
+    /// Sección de fijadas plegada (clic en el nombre del espacio, como en Arc).
+    public internal(set) var isPinnedCollapsed = false
 
     public internal(set) var pinned: [SidebarItem] = []
     public internal(set) var tabs: [BrowserTab] = []

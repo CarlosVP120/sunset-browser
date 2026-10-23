@@ -13,6 +13,12 @@ public final class Browser {
     public private(set) var archive: [ArchivedTab] = []
     /// Perfiles además del predeterminado.
     public private(set) var profiles: [Profile] = []
+    /// Pestaña que se está renombrando en la barra lateral.
+    public var renamingTabID: BrowserTab.ID?
+    /// Ventana con la lista de atajos de teclado.
+    public var showsShortcuts = false
+    /// Aviso breve abajo ("Enlace copiado").
+    public private(set) var toast: Toast?
     /// Editor abierto de un espacio (icono, nombre o tema).
     public var spaceEditor: SpaceEditorRequest?
     /// Ventana para ordenar, renombrar y borrar espacios.
@@ -454,6 +460,14 @@ public final class Browser {
         engine.removeProfileData(profile)
     }
 
+    func clearBrowsingData(_ kinds: BrowsingData, host: String? = nil) async {
+        await engine.clearBrowsingData(kinds, host: host)
+    }
+
+    public func showToast(_ message: String, symbol: String) {
+        toast = Toast(message: message, symbol: symbol)
+    }
+
     func insertIntoArchive(_ archived: ArchivedTab) {
         archive.insert(archived, at: 0)
         archive = Array(archive.prefix(Self.archiveLimit))
@@ -494,7 +508,7 @@ public final class Browser {
 
     func snapshot() -> SidebarSnapshot {
         func record(_ tab: BrowserTab) -> SidebarSnapshot.TabRecord {
-            .init(id: tab.id, url: tab.url, title: tab.title, faviconURL: tab.faviconURL)
+            .init(id: tab.id, url: tab.url, title: tab.title, faviconURL: tab.faviconURL, customTitle: tab.customTitle)
         }
         return SidebarSnapshot(
             favorites: favorites.map(record),
@@ -505,6 +519,7 @@ public final class Browser {
                     icon: space.icon,
                     theme: space.theme,
                     profileID: space.profileID,
+                    isPinnedCollapsed: space.isPinnedCollapsed,
                     pinned: space.pinned.map { item in
                         switch item {
                         case .tab(let tab):
@@ -526,7 +541,9 @@ public final class Browser {
 
     private func apply(_ snapshot: SidebarSnapshot) {
         func tab(_ record: SidebarSnapshot.TabRecord) -> BrowserTab {
-            makeTab(url: record.url, id: record.id, title: record.title, faviconURL: record.faviconURL)
+            let tab = makeTab(url: record.url, id: record.id, title: record.title, faviconURL: record.faviconURL)
+            tab.customTitle = record.customTitle
+            return tab
         }
         favorites = snapshot.favorites.map(tab)
         spaces = snapshot.spaces.map { record in
@@ -543,6 +560,7 @@ public final class Browser {
             space.tabs = record.tabs.map(tab)
             space.selectedTabID = record.selectedTabID
             space.profileID = record.profileID
+            space.isPinnedCollapsed = record.isPinnedCollapsed
             return space
         }
         if let activeSpaceID = snapshot.activeSpaceID { self.activeSpaceID = activeSpaceID }

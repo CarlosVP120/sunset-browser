@@ -49,6 +49,11 @@ public final class History {
         scheduleSave()
     }
 
+    public func clear() {
+        entries.removeAll()
+        scheduleSave()
+    }
+
     /// Entradas que coinciden con la búsqueda, de más a menos relevante.
     public func search(_ query: String, limit: Int, now: Date = Date()) -> [HistoryEntry] {
         let needle = query.searchNormalized

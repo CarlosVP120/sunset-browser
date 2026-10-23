@@ -7,6 +7,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var url: URL?
         public var title: String
         public var faviconURL: URL?
+        public var customTitle: String?
     }
 
     public struct FolderRecord: Codable, Equatable, Sendable {
@@ -27,6 +28,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var icon: String
         public var theme: SpaceTheme
         public var profileID: UUID?
+        public var isPinnedCollapsed: Bool
         public var pinned: [ItemRecord]
         public var tabs: [TabRecord]
         public var selectedTabID: UUID?
@@ -37,6 +39,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             icon: String,
             theme: SpaceTheme,
             profileID: UUID? = nil,
+            isPinnedCollapsed: Bool = false,
             pinned: [ItemRecord],
             tabs: [TabRecord],
             selectedTabID: UUID?
@@ -46,13 +49,14 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             self.icon = icon
             self.theme = theme
             self.profileID = profileID
+            self.isPinnedCollapsed = isPinnedCollapsed
             self.pinned = pinned
             self.tabs = tabs
             self.selectedTabID = selectedTabID
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, name, icon, theme, color, profileID, pinned, tabs, selectedTabID
+            case id, name, icon, theme, color, profileID, isPinnedCollapsed, pinned, tabs, selectedTabID
         }
 
         public init(from decoder: Decoder) throws {
@@ -68,6 +72,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
                 theme = .dark(from: color)
             }
             profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
+            isPinnedCollapsed = try container.decodeIfPresent(Bool.self, forKey: .isPinnedCollapsed) ?? false
             pinned = try container.decode([ItemRecord].self, forKey: .pinned)
             tabs = try container.decode([TabRecord].self, forKey: .tabs)
             selectedTabID = try container.decodeIfPresent(UUID.self, forKey: .selectedTabID)
@@ -80,6 +85,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             try container.encode(icon, forKey: .icon)
             try container.encode(theme, forKey: .theme)
             try container.encodeIfPresent(profileID, forKey: .profileID)
+            try container.encode(isPinnedCollapsed, forKey: .isPinnedCollapsed)
             try container.encode(pinned, forKey: .pinned)
             try container.encode(tabs, forKey: .tabs)
             try container.encodeIfPresent(selectedTabID, forKey: .selectedTabID)

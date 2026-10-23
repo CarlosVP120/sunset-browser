@@ -149,20 +149,7 @@ struct TooltipBubble: View {
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.95))
             if let shortcut {
-                HStack(spacing: 3) {
-                    ForEach(Array(shortcut.enumerated()), id: \.offset) { _, key in
-                        Text(String(key))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color(white: 0.16))
-                            .frame(minWidth: 19, minHeight: 19)
-                            .padding(.horizontal, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .fill(Color(white: 0.88))
-                                    .shadow(color: .black.opacity(0.35), radius: 0, y: 1)
-                            )
-                    }
-                }
+                ShortcutKeys(shortcut)
             }
         }
         .padding(.leading, 11)
@@ -175,5 +162,33 @@ struct TooltipBubble: View {
         )
         .fixedSize()
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Un atajo dibujado como teclas ("⇧⌘R" → ⇧ ⌘ R).
+public struct ShortcutKeys: View {
+    let shortcut: String
+    var isOnLightBackground: Bool
+
+    public init(_ shortcut: String, onLightBackground: Bool = false) {
+        self.shortcut = shortcut
+        self.isOnLightBackground = onLightBackground
+    }
+
+    public var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(shortcut.enumerated()), id: \.offset) { _, key in
+                Text(String(key))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isOnLightBackground ? Color.white.opacity(0.9) : Color(white: 0.16))
+                    .frame(minWidth: 19, minHeight: 19)
+                    .padding(.horizontal, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(isOnLightBackground ? Color(white: 0.35) : Color(white: 0.88))
+                            .shadow(color: .black.opacity(0.35), radius: 0, y: 1)
+                    )
+            }
+        }
     }
 }

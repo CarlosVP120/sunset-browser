@@ -39,6 +39,16 @@ public struct CommandBarView: View {
             if mode == .currentTab, let url = browser.selectedTab?.url { query = url.absoluteString }
             isFocused = true
         }
+        .task {
+            // Si se abrió con un clic, el botón pulsado retiene el foco durante ese ciclo:
+            // se pide de nuevo cuando termina, y otra vez por si la página lo recupera.
+            for delay in [0, 80] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                guard delay == 0 || !isFocused else { continue }
+                NSApp.keyWindow?.makeFirstResponder(nil)
+                isFocused = true
+            }
+        }
         .onChange(of: query) { selection = 0 }
         .task(id: query) { await loadSearchSuggestions() }
     }
@@ -68,18 +78,27 @@ public struct CommandBarView: View {
                     .frame(height: 1)
                     .padding(.horizontal, 14)
 
-                VStack(spacing: 2) {
-                    ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
-                        SuggestionRow(
-                            suggestion: suggestion,
-                            isSelected: index == selection,
-                            namespace: selectionNamespace
-                        )
-                        .onHover { if $0 { selection = index } }
-                        .onTapGesture { browser.perform(suggestion, mode: mode) }
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 2) {
+                            ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                                SuggestionRow(
+                                    suggestion: suggestion,
+                                    isSelected: index == selection,
+                                    namespace: selectionNamespace
+                                )
+                                .id(index)
+                                .onHover { if $0 { selection = index } }
+                                .onTapGesture { browser.perform(suggestion, mode: mode) }
+                            }
+                        }
+                        .padding(8)
                     }
+                    // Hasta 9 filas a la vista; el resto con scroll.
+                    .frame(maxHeight: 9 * 48 + 16)
+                    .fixedSize(horizontal: false, vertical: suggestions.count <= 9)
+                    .onChange(of: selection) { withAnimation(Theme.hoverOut) { proxy.scrollTo(selection) } }
                 }
-                .padding(8)
                 .animation(.spring(response: 0.22, dampingFraction: 0.9), value: selection)
             }
         }
@@ -180,6 +199,10 @@ private struct SuggestionRow: View {
 
             Spacer(minLength: 0)
 
+            if let shortcut = suggestion.shortcut {
+                ShortcutKeys(shortcut, onLightBackground: true)
+                    .opacity(isSelected ? 1 : 0.6)
+            }
             if isSelected {
                 Image(systemName: "return")
                     .font(.system(size: 11, weight: .semibold))

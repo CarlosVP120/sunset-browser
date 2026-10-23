@@ -9,7 +9,11 @@ public struct SidebarView: View {
     let accessory: AnyView?
     /// Hacia dónde se desliza el contenido al cambiar de espacio.
     @State private var spaceTransitionEdge: Edge = .trailing
+    @State private var isScrolled = false
     @Environment(\.spaceTheme) private var theme
+
+    private static let topID = "sidebar-top"
+    private static let scrollSpace = "sidebar-scroll"
 
     public init(browser: Browser, accessory: AnyView? = nil) {
         self.browser = browser
@@ -27,18 +31,58 @@ public struct SidebarView: View {
                     .padding(.bottom, 8)
             }
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !browser.favorites.isEmpty {
-                        FavoritesGrid(browser: browser)
-                            .padding(.bottom, 10)
-                    }
+            // Los favoritos no se mueven al hacer scroll (como en Arc).
+            if !browser.favorites.isEmpty {
+                FavoritesGrid(browser: browser)
+                    .padding(.bottom, 10)
+            }
 
-                    SpaceContent(browser: browser, space: space)
-                        .id(space.id)
-                        .transition(.push(from: spaceTransitionEdge))
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Color.clear.frame(height: 0).id(Self.topID)
+                            .background(GeometryReader { geometry in
+                                Color.clear.preference(key: ScrollOffsetKey.self,
+                                                       value: geometry.frame(in: .named(Self.scrollSpace)).minY)
+                            })
+                        SpaceContent(browser: browser, space: space)
+                            .id(space.id)
+                            .transition(.push(from: spaceTransitionEdge))
+                    }
+                    .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
+                .coordinateSpace(name: Self.scrollSpace)
+                .onPreferenceChange(ScrollOffsetKey.self) { offset in
+                    let scrolled = offset < -60
+                    if scrolled != isScrolled { withAnimation(Theme.spring) { isScrolled = scrolled } }
+                }
+                // Al hacer scroll, el contenido se funde bajo los favoritos en vez de cortarse.
+                .mask(
+                    VStack(spacing: 0) {
+                        LinearGradient(colors: [.black.opacity(isScrolled ? 0 : 1), .black],
+                                       startPoint: .top, endPoint: .bottom)
+                            .frame(height: 14)
+                        Color.black
+                    }
+                )
+                .overlay(alignment: .top) {
+                    if isScrolled {
+                        Button {
+                            withAnimation(Theme.spring) { proxy.scrollTo(Self.topID, anchor: .top) }
+                        } label: {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color(white: 0.12))
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(.white.opacity(0.92)))
+                                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                        .tooltip("Volver arriba")
+                        .padding(.top, 4)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    }
+                }
             }
 
             BottomBar(browser: browser)
@@ -52,6 +96,11 @@ public struct SidebarView: View {
         }
         .animation(Theme.spring, value: browser.activeSpaceID)
     }
+}
+
+private struct ScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 /// Lo que cambia con el espacio: cabecera, fijadas, separador, nueva pestaña y pestañas de hoy.
@@ -69,7 +118,7 @@ private struct SpaceContent: View {
                                         folderIndex: { _ in 0 }, zone: zone)
                 }
 
-            ForEach(Array(space.pinned.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array((space.isPinnedCollapsed ? [] : space.pinned).enumerated()), id: \.element.id) { index, item in
                 switch item {
                 case .tab(let tab):
                     TabRow(browser: browser, tab: tab)
@@ -86,11 +135,7 @@ private struct SpaceContent: View {
                 }
             }
 
-            Rectangle()
-                .fill(Color(theme.title).opacity(0.10))
-                .frame(height: 1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
+            TodaySeparator(browser: browser, space: space)
 
             NewTabRow(browser: browser)
                 .sidebarDropTarget { size, zone in
@@ -112,6 +157,41 @@ private struct SpaceContent: View {
         }
         .animation(Theme.spring, value: space.tabs.map(\.id))
         .animation(Theme.spring, value: space.pinned.map(\.id))
+        .animation(Theme.spring, value: space.isPinnedCollapsed)
+    }
+}
+
+/// Separador entre fijadas y Hoy. Al pasar el ratón aparece "Limpiar" (archiva las de Hoy).
+private struct TodaySeparator: View {
+    let browser: Browser
+    let space: Space
+    @State private var isHovering = false
+    @Environment(\.spaceTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(Color(theme.title).opacity(0.10))
+                .frame(height: 1)
+            if isHovering && !space.tabs.isEmpty {
+                Button {
+                    withAnimation(Theme.spring) { browser.archiveTodayTabs(keepingSelected: false) }
+                } label: {
+                    Text("Limpiar")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color(theme.subtitle).opacity(1.6))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                }
+                .buttonStyle(PillButtonStyle())
+                .tooltip("Archivar las pestañas de Hoy")
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 18)
+        .contentShape(Rectangle())
+        .onHover { hovering in withAnimation(hovering ? Theme.hoverIn : Theme.hoverOut) { isHovering = hovering } }
     }
 }
 
@@ -246,6 +326,15 @@ private struct TabRow: View {
         .buttonStyle(SidebarRowStyle(isSelected: isSelected))
         .onDrag { DragPayload.provider(for: tab) }
         .contextMenu {
+            Button("Renombrar…") { browser.renamingTabID = tab.id }
+            if tab.customTitle != nil {
+                Button("Restablecer nombre") { browser.rename(tab, to: "") }
+            }
+            Button("Duplicar") {
+                browser.select(tab)
+                browser.perform(.duplicateTab)
+            }
+            Divider()
             Button("Añadir a favoritos") { browser.addToFavorites(tab) }
             Button(isPinned ? "Desfijar" : "Fijar") { withAnimation(Theme.spring) { browser.togglePin(tab) } }
             if !space.folders.isEmpty {
@@ -267,16 +356,34 @@ private struct TabRowLabel: View {
     let tab: BrowserTab
     let isSelected: Bool
     let isPinned: Bool
+    @State private var newName = ""
+    @FocusState private var isNameFocused: Bool
     @Environment(\.rowIsHovering) private var isHovering
     @Environment(\.spaceTheme) private var theme
 
     var body: some View {
         HStack(spacing: 8) {
             LoadingFavicon(tab: tab)
-            Text(tab.displayTitle)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
+            if browser.renamingTabID == tab.id {
+                TextField(tab.title, text: $newName)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(Color(theme.title))
+                    .focused($isNameFocused)
+                    .onAppear {
+                        newName = tab.displayTitle
+                        isNameFocused = true
+                    }
+                    .onSubmit { browser.rename(tab, to: newName) }
+                    .onExitCommand { browser.renamingTabID = nil }
+                    .onChange(of: isNameFocused) {
+                        if !isNameFocused, browser.renamingTabID == tab.id { browser.rename(tab, to: newName) }
+                    }
+            } else {
+                Text(tab.displayTitle)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
+            }
             Spacer(minLength: 0)
             Button { withAnimation(Theme.spring) { browser.close(tab) } } label: {
                 Image(systemName: isPinned ? "minus" : "xmark")

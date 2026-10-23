@@ -1,72 +1,5 @@
 import AppKit
 
-/// Acciones del navegador que se pueden lanzar escribiendo en el Command Bar.
-public enum BrowserCommand: String, CaseIterable, Sendable {
-    case copyURL, reload, closeTab, togglePin, addToFavorites
-    case reopenClosedTab, newFolder, newSpace
-    case toggleSidebar, toggleToolbar
-    case zoomIn, zoomOut, resetZoom
-    case importFromArc
-
-    public var title: String {
-        switch self {
-        case .copyURL: "Copiar URL"
-        case .reload: "Recargar página"
-        case .closeTab: "Cerrar pestaña"
-        case .togglePin: "Fijar o desfijar pestaña"
-        case .addToFavorites: "Añadir a favoritos"
-        case .reopenClosedTab: "Reabrir pestaña cerrada"
-        case .newFolder: "Nueva carpeta"
-        case .newSpace: "Nuevo espacio"
-        case .toggleSidebar: "Mostrar u ocultar barra lateral"
-        case .toggleToolbar: "Mostrar u ocultar barra de herramientas"
-        case .zoomIn: "Acercar"
-        case .zoomOut: "Alejar"
-        case .resetZoom: "Tamaño real"
-        case .importFromArc: "Volver a importar desde Arc"
-        }
-    }
-
-    public var symbol: String {
-        switch self {
-        case .copyURL: "link"
-        case .reload: "arrow.clockwise"
-        case .closeTab: "xmark"
-        case .togglePin: "pin"
-        case .addToFavorites: "star"
-        case .reopenClosedTab: "arrow.uturn.backward"
-        case .newFolder: "folder.badge.plus"
-        case .newSpace: "square.stack"
-        case .toggleSidebar: "sidebar.left"
-        case .toggleToolbar: "menubar.rectangle"
-        case .zoomIn: "plus.magnifyingglass"
-        case .zoomOut: "minus.magnifyingglass"
-        case .resetZoom: "1.magnifyingglass"
-        case .importFromArc: "square.and.arrow.down"
-        }
-    }
-
-    /// Palabras extra con las que también se encuentra el comando.
-    var keywords: String {
-        switch self {
-        case .copyURL: "copy link enlace"
-        case .reload: "refresh actualizar"
-        case .closeTab: "close"
-        case .togglePin: "pin"
-        case .addToFavorites: "favorite star"
-        case .reopenClosedTab: "undo restaurar"
-        case .newFolder: "folder crear"
-        case .newSpace: "space crear"
-        case .toggleSidebar: "sidebar ocultar"
-        case .toggleToolbar: "toolbar url bar"
-        case .zoomIn: "zoom mas grande"
-        case .zoomOut: "zoom menos pequeño"
-        case .resetZoom: "zoom 100 restablecer"
-        case .importFromArc: "arc import"
-        }
-    }
-}
-
 /// Una fila del Command Bar.
 public struct Suggestion: Identifiable, Equatable, Sendable {
     public enum Action: Equatable, Sendable {
@@ -74,6 +7,8 @@ public struct Suggestion: Identifiable, Equatable, Sendable {
         case switchToTab(UUID)
         case switchToSpace(UUID)
         case command(BrowserCommand)
+        case moveTabToSpace(UUID)
+        case openFolder(UUID)
     }
 
     public let id: String
@@ -86,6 +21,8 @@ public struct Suggestion: Identifiable, Equatable, Sendable {
     public let faviconURL: URL?
     /// SF Symbol cuando no hay favicon (búsquedas, comandos, espacios).
     public let symbol: String?
+    /// Atajo de teclado a mostrar a la derecha.
+    public let shortcut: String?
 
     public init(
         id: String,
@@ -94,7 +31,8 @@ public struct Suggestion: Identifiable, Equatable, Sendable {
         action: Action,
         pageURL: URL? = nil,
         faviconURL: URL? = nil,
-        symbol: String? = nil
+        symbol: String? = nil,
+        shortcut: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -103,6 +41,7 @@ public struct Suggestion: Identifiable, Equatable, Sendable {
         self.pageURL = pageURL
         self.faviconURL = faviconURL
         self.symbol = symbol
+        self.shortcut = shortcut
     }
 }
 
@@ -148,14 +87,18 @@ extension Browser {
             }
         }
 
-        // 4. Pestañas abiertas que coinciden.
+        // 4. Comandos que empiezan por lo escrito (p. ej. "clear", "limpiar", "copiar").
+        let commands = matchingCommands(needle)
+        for command in commands.strong.prefix(8) { results.append(commandSuggestion(command)) }
+
+        // 5. Pestañas abiertas que coinciden.
         let matchingTabs = allTabs.filter { tab in
-            tab.id != current?.id && (tab.title.searchNormalized.contains(needle)
+            tab.id != current?.id && (tab.displayTitle.searchNormalized.contains(needle)
                 || (tab.url?.host() ?? "").searchNormalized.contains(needle))
         }
         for tab in matchingTabs.prefix(3) { add(switchSuggestion(tab)) }
 
-        // 5. Historial.
+        // 6. Historial.
         for entry in history.search(query, limit: 6) where !matchingTabs.contains(where: { $0.url == entry.url }) {
             add(Suggestion(
                 id: "history:\(entry.url.absoluteString)",
@@ -166,20 +109,24 @@ extension Browser {
             ))
         }
 
-        // 6. Espacios y comandos.
+        // Espacios, carpetas, mover la pestaña y el resto de comandos.
         for space in spaces where space.name.searchNormalized.contains(needle) {
             results.append(Suggestion(id: "space:\(space.id)", title: space.name, detail: "Ir al espacio",
                                       action: .switchToSpace(space.id), symbol: "square.stack"))
         }
-        if needle.count >= 2 {
-            let commands = BrowserCommand.allCases.filter {
-                "\($0.title) \($0.keywords)".searchNormalized.contains(needle)
-            }
-            for command in commands.prefix(3) {
-                results.append(Suggestion(id: "command:\(command.rawValue)", title: command.title,
-                                          action: .command(command), symbol: command.symbol))
+        for folder in activeSpace.folders where folder.name.searchNormalized.contains(needle) {
+            results.append(Suggestion(id: "folder:\(folder.id)", title: folder.name, detail: "Abrir carpeta",
+                                      action: .openFolder(folder.id), symbol: "folder"))
+        }
+        if let tab = selectedTab, tab.url != nil, needle.count >= 2 {
+            let wantsMove = "mover a move to".contains(needle) || needle.hasPrefix("mover") || needle.hasPrefix("move")
+            for space in spaces where space.id != activeSpaceID
+                && (wantsMove || space.name.searchNormalized.hasPrefix(needle)) {
+                results.append(Suggestion(id: "move:\(space.id)", title: "Mover pestaña a «\(space.name)»",
+                                          action: .moveTabToSpace(space.id), symbol: "arrow.right.square"))
             }
         }
+        for command in commands.weak.prefix(2) { results.append(commandSuggestion(command)) }
 
         // 7. Sugerencias de búsqueda.
         for term in searchSuggestions.prefix(4) where term.searchNormalized != needle {
@@ -187,7 +134,7 @@ extension Browser {
             add(Suggestion(id: "suggest:\(term)", title: term, action: .open(url), symbol: "magnifyingglass"))
         }
 
-        return Array(results.prefix(9))
+        return Array(results.prefix(12))
     }
 
     /// Ejecuta la fila elegida.
@@ -206,30 +153,43 @@ extension Browser {
             if let space = spaces.first(where: { $0.id == id }) { activate(space) }
         case .command(let command):
             perform(command)
+        case .moveTabToSpace(let id):
+            if let tab = selectedTab, let space = spaces.first(where: { $0.id == id }) { move(tab, toSpace: space) }
+        case .openFolder(let id):
+            if let folder = folder(withID: id) {
+                folder.isExpanded = true
+                activeSpace.isPinnedCollapsed = false
+                scheduleSave()
+            }
         }
     }
 
-    public func perform(_ command: BrowserCommand) {
-        let tab = selectedTab
-        switch command {
-        case .copyURL:
-            guard let url = tab?.url else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url.absoluteString, forType: .string)
-        case .reload: tab?.reload()
-        case .closeTab: closeSelectedTab()
-        case .togglePin: if let tab { togglePin(tab) }
-        case .addToFavorites: if let tab { addToFavorites(tab) }
-        case .reopenClosedTab: reopenLastClosedTab()
-        case .newFolder: newFolder()
-        case .newSpace: addSpace(name: "Espacio \(spaces.count + 1)")
-        case .toggleSidebar: showsSidebar.toggle()
-        case .toggleToolbar: showsToolbar.toggle()
-        case .zoomIn: zoomIn()
-        case .zoomOut: zoomOut()
-        case .resetZoom: resetZoom()
-        case .importFromArc: try? reimportFromArc()
+    /// Comandos disponibles que coinciden, de más a menos relevante. Son "fuertes" si alguna
+    /// palabra empieza por lo escrito: primero en el título, luego en las palabras clave.
+    private func matchingCommands(_ needle: String) -> (strong: [BrowserCommand], weak: [BrowserCommand]) {
+        guard needle.count >= 2 else { return ([], []) }
+        func words(_ text: String) -> [String] {
+            text.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
         }
+        var scored: [(BrowserCommand, Int)] = [], weak: [BrowserCommand] = []
+        for command in BrowserCommand.allCases where command.isAvailable(in: self) {
+            let title = command.title.searchNormalized
+            let keywords = command.keywords.searchNormalized
+            if title.hasPrefix(needle) { scored.append((command, 3)) }
+            else if words(title).contains(where: { $0.hasPrefix(needle) }) { scored.append((command, 2)) }
+            else if keywords.hasPrefix(needle) || words(keywords).contains(where: { $0.hasPrefix(needle) })
+                || (needle.contains(" ") && keywords.contains(needle)) { scored.append((command, 1)) }
+            else if title.contains(needle) || keywords.contains(needle) { weak.append(command) }
+        }
+        // `sorted` es estable: a igual puntuación se respeta el orden de la lista.
+        let strong = scored.enumerated().sorted { ($0.element.1, -$0.offset) > ($1.element.1, -$1.offset) }
+            .map(\.element.0)
+        return (strong, weak)
+    }
+
+    private func commandSuggestion(_ command: BrowserCommand) -> Suggestion {
+        Suggestion(id: "command:\(command.rawValue)", title: command.title, action: .command(command),
+                   symbol: command.symbol, shortcut: command.shortcut)
     }
 
     private func switchSuggestion(_ tab: BrowserTab) -> Suggestion {

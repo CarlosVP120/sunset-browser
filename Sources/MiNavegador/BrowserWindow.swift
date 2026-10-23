@@ -36,9 +36,10 @@ struct BrowserWindow: View {
                     }
 
                     WebContentArea(browser: browser)
-                        .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                         .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                        // El haz va justo por fuera del borde, sobre el marco: se ve en páginas claras y oscuras.
+                        .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .overlay(alignment: .top) {
                             ZoomIndicatorView(browser: browser).padding(.top, 10)
                         }
@@ -65,6 +66,11 @@ struct BrowserWindow: View {
                 peekingSidebar
             }
 
+            ToastView(browser: browser)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 28)
+                .zIndex(20)
+
             if let mode = browser.commandBar {
                 CommandBarView(browser: browser, mode: mode)
                     .id(mode)
@@ -88,6 +94,12 @@ struct BrowserWindow: View {
             set: { browser.showsSpaceManager = $0 }
         )) {
             SpaceManagerView(browser: browser)
+        }
+        .sheet(isPresented: Binding(
+            get: { browser.showsShortcuts },
+            set: { browser.showsShortcuts = $0 }
+        )) {
+            ShortcutsView()
         }
     }
 

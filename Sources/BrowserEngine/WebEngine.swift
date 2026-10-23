@@ -64,6 +64,12 @@ public protocol WebPage: AnyObject {
     /// Busca texto en la página y lo resalta. Devuelve si lo encontró.
     func find(_ text: String, backwards: Bool) async -> Bool
     func printPage()
+    /// Captura de lo que se ve de la página.
+    func snapshot() async -> NSImage?
+    /// El HTML actual de la página.
+    func pageSource() async -> String?
+    /// Pausa audio y vídeo de la página.
+    func pauseAllMedia()
 }
 
 /// Fábrica de páginas. Cambiar de motor (WebKit → Chromium/CEF) es cambiar esta pieza.
@@ -73,4 +79,18 @@ public protocol WebEngine: AnyObject {
     func makePage(profile: UUID?) -> WebPage
     /// Borra los datos web (cookies, caché, almacenamiento) de un perfil eliminado.
     func removeProfileData(_ profile: UUID)
+    /// Borra datos de navegación de todos los perfiles; con `host`, solo los de ese sitio.
+    func clearBrowsingData(_ kinds: BrowsingData, host: String?) async
+}
+
+/// Qué datos de navegación borrar.
+public struct BrowsingData: OptionSet, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    /// Caché de páginas, imágenes y scripts.
+    public static let cache = BrowsingData(rawValue: 1 << 0)
+    /// Cookies, almacenamiento local, bases de datos y service workers.
+    public static let cookiesAndSiteData = BrowsingData(rawValue: 1 << 1)
+    public static let all: BrowsingData = [.cache, .cookiesAndSiteData]
 }

@@ -43,6 +43,32 @@ public final class WebKitEngine: WebEngine {
         return profileConfiguration
     }
 
+    public func clearBrowsingData(_ kinds: BrowsingData, host: String?) async {
+        let cacheTypes: Set<String> = [
+            WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache,
+            WKWebsiteDataTypeFetchCache, WKWebsiteDataTypeOfflineWebApplicationCache,
+        ]
+        var types = Set<String>()
+        if kinds.contains(.cache) { types.formUnion(cacheTypes) }
+        if kinds.contains(.cookiesAndSiteData) {
+            types.formUnion(WKWebsiteDataStore.allWebsiteDataTypes().subtracting(cacheTypes))
+        }
+        guard !types.isEmpty else { return }
+
+        let stores = [configuration.websiteDataStore] + profileConfigurations.values.map(\.websiteDataStore)
+        for store in stores {
+            if let host {
+                // Los registros van por dominio ("google.com"); vale también para sus subdominios.
+                let records = await store.dataRecords(ofTypes: types).filter { record in
+                    host == record.displayName || host.hasSuffix("." + record.displayName)
+                }
+                await store.removeData(ofTypes: types, for: records)
+            } else {
+                await store.removeData(ofTypes: types, modifiedSince: .distantPast)
+            }
+        }
+    }
+
     /// Borra cookies, caché y almacenamiento de un perfil eliminado.
     public func removeProfileData(_ profile: UUID) {
         profileConfigurations[profile] = nil
@@ -125,6 +151,18 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
         configuration.caseSensitive = false
         configuration.wraps = true
         return (try? await webView.find(text, configuration: configuration).matchFound) ?? false
+    }
+
+    func snapshot() async -> NSImage? {
+        try? await webView.takeSnapshot(configuration: nil)
+    }
+
+    func pageSource() async -> String? {
+        try? await webView.evaluateJavaScript("document.documentElement.outerHTML") as? String
+    }
+
+    func pauseAllMedia() {
+        webView.pauseAllMediaPlayback()
     }
 
     func printPage() {

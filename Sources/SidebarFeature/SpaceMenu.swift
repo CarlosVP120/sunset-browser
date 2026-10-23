@@ -86,6 +86,8 @@ struct SpaceHeader: View {
     let browser: Browser
     let space: Space
     @State private var newName = ""
+    @State private var isHovering = false
+    @State private var isMenuHovering = false
     @FocusState private var isNameFocused: Bool
     @Environment(\.spaceTheme) private var theme
 
@@ -102,13 +104,17 @@ struct SpaceHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Button { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .icon) } label: {
+            // Al pasar el ratón el icono se convierte en la flecha de plegar (como en Arc).
+            ZStack {
                 SpaceIcon(space.icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 16)
+                    .opacity(isHovering ? 0 : 1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .rotationEffect(.degrees(space.isPinnedCollapsed ? 0 : 90))
+                    .opacity(isHovering ? 1 : 0)
             }
-            .buttonStyle(.plain)
-            .tooltip("Cambiar icono")
+            .font(.system(size: 12, weight: .semibold))
+            .frame(width: 16)
             .popover(isPresented: binding(.icon), arrowEdge: .trailing) {
                 IconPicker(selected: space.icon) { icon in
                     browser.setIcon(icon, for: space)
@@ -132,18 +138,40 @@ struct SpaceHeader: View {
             } else {
                 Text(space.name)
                     .font(.system(size: 13, weight: .semibold))
-                    .onTapGesture(count: 2) { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename) }
             }
-            Spacer()
+            Spacer(minLength: 0)
+
+            Menu {
+                SpaceMenu(browser: browser, space: space)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .tooltip("Opciones del espacio")
+            .opacity(isHovering || isMenuHovering ? 1 : 0)
+            .onHover { isMenuHovering = $0 }
         }
         .foregroundStyle(Color(theme.subtitle).opacity(1.4))
         .padding(.horizontal, 10)
-        .frame(height: 28)
+        .frame(height: 30)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .fill(Color(theme.hover))
+                .opacity(isHovering ? 0.7 : 0)
+        )
         .contentShape(Rectangle())
+        .onHover { hovering in withAnimation(hovering ? Theme.hoverIn : Theme.hoverOut) { isHovering = hovering } }
+        .onTapGesture(count: 2) { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename) }
+        .onTapGesture { withAnimation(Theme.spring) { browser.togglePinnedSection(space) } }
+        .tooltip(space.isPinnedCollapsed ? "Mostrar fijadas" : "Plegar fijadas")
         .contextMenu { SpaceMenu(browser: browser, space: space) }
         .popover(isPresented: binding(.theme), arrowEdge: .trailing) {
             ThemeEditor(browser: browser, space: space)
         }
+        .animation(Theme.spring, value: space.isPinnedCollapsed)
     }
 
     private func finishRename() {
