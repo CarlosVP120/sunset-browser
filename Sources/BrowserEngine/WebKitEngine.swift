@@ -33,6 +33,10 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: FaviconScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
         configuration.userContentController.add(mediaRouter, name: FaviconScript.handlerName)
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+        configuration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
         autofill.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
@@ -82,6 +86,10 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: FaviconScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.add(mediaRouter, name: FaviconScript.handlerName)
+            profileConfiguration.userContentController.addUserScript(
+                WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            )
+            profileConfiguration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
             autofill.install(in: profileConfiguration.userContentController)
         }
         profileConfigurations[profile] = profileConfiguration
@@ -314,7 +322,50 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         return nil
     }
 
+    // MARK: Modo desarrollador
+
+    private var developerMode = false
+    private var onConsoleMessage: (@MainActor (ConsoleMessage) -> Void)?
+
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?) {
+        developerMode = enabled
+        onConsoleMessage = enabled ? onMessage : nil
+        enableConsoleInPage()
+    }
+
+    /// Cada documento nuevo empieza con la consola apagada: se enciende si la pestaña la usa.
+    private func enableConsoleInPage() {
+        webView.evaluateJavaScript("window.__sunsetConsole && window.__sunsetConsole.enable(\(developerMode))")
+    }
+
+    func receiveConsole(_ body: Any) {
+        guard developerMode, let body = body as? [String: Any], let text = body["text"] as? String else { return }
+        let level = (body["level"] as? String).flatMap(ConsoleMessage.Level.init(rawValue:)) ?? .log
+        onConsoleMessage?(ConsoleMessage(level: level, text: text, source: body["source"] as? String))
+    }
+
+    func evaluateInConsole(_ code: String) async -> String {
+        do {
+            let result = try await webView.callAsyncJavaScript(ConsoleScript.evaluationBody, arguments: ["code": code],
+                                                               contentWorld: .page)
+            return (result as? String) ?? String(describing: result ?? "undefined")
+        } catch {
+            return "⚠︎ \(error.localizedDescription)"
+        }
+    }
+
+    /// El inspector web de WebKit (el de Safari), acoplado bajo la página como las DevTools de Arc.
+    func showInspector(selectingElement: Bool) {
+        guard let inspector = webView.value(forKey: "_inspector") as? NSObject else { return }
+        if inspector.responds(to: NSSelectorFromString("show")) { inspector.perform(NSSelectorFromString("show")) }
+
+        if selectingElement, inspector.responds(to: NSSelectorFromString("toggleElementSelection")) {
+            inspector.perform(NSSelectorFromString("toggleElementSelection"))
+        }
+    }
+
     private func pageDidFinishLoading() {
+        if developerMode { enableConsoleInPage() }
         Task { [weak self] in
             guard let self else { return }
             let href = try? await webView.evaluateJavaScript(Self.faviconScript) as? String
@@ -362,6 +413,8 @@ final class MediaMessageRouter: NSObject, WKScriptMessageHandler {
         guard let webView = message.webView, let page = pages[ObjectIdentifier(webView)]?.page else { return }
         if message.name == FaviconScript.handlerName {
             page.receiveFavicon(message.body as? String)
+        } else if message.name == ConsoleScript.handlerName {
+            page.receiveConsole(message.body)
         } else {
             page.receiveMediaMessage(message.body)
         }

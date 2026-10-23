@@ -94,6 +94,22 @@ struct BrowserCommands: Commands {
             Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
         }
 
+        CommandMenu("Desarrollo") {
+            Button("Modo desarrollador en este sitio") { browser.perform(.toggleDeveloperMode) }
+                .disabled(browser.selectedTab?.url == nil || browser.selectedTab?.isHome == true)
+            Divider()
+            Button("Consola") { browser.perform(.toggleConsole) }
+                .keyboardShortcut("j", modifiers: [.command, .option])
+                .disabled(browser.selectedTab?.isDeveloperMode != true)
+            Button("Inspeccionar elemento") { browser.perform(.inspectElement) }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+            Button("Inspector web") { browser.perform(.openWebInspector) }
+                .keyboardShortcut("i", modifiers: [.command, .option])
+            Button("Vista móvil") { browser.perform(.toggleResponsive) }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(browser.selectedTab?.isDeveloperMode != true)
+        }
+
         CommandMenu("Navegación") {
             Button("Atrás") { browser.selectedTab?.goBack() }
                 .keyboardShortcut("[")

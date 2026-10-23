@@ -76,6 +76,20 @@ public protocol WebPage: AnyObject {
     /// Pone o quita el vídeo principal en imagen en imagen (PiP).
     func setPictureInPicture(_ enabled: Bool)
     func mediaCommand(_ command: MediaCommand)
+
+    // Modo desarrollador
+    /// Activa la consola de la página: `onMessage` recibe lo que escribe (y lo que tenía guardado).
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?)
+    /// Ejecuta JavaScript escrito en la consola de Sunset y devuelve el resultado como texto.
+    func evaluateInConsole(_ code: String) async -> String
+    /// Abre el inspector web (Elementos, Red, Fuentes…); con `selectingElement`, para elegir un elemento.
+    func showInspector(selectingElement: Bool)
+}
+
+public extension WebPage {
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?) {}
+    func evaluateInConsole(_ code: String) async -> String { "" }
+    func showInspector(selectingElement: Bool) {}
 }
 
 /// Controles del reproductor de la barra lateral.

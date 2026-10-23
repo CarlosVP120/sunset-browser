@@ -22,6 +22,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     // Ventana
     case goHome
     case toggleSidebar, toggleToolbar, showLibrary, showDownloads, showShortcuts, importFromArc
+    // Modo desarrollador
+    case toggleDeveloperMode, toggleConsole, inspectElement, openWebInspector, toggleResponsive
 
     public var title: String {
         switch self {
@@ -32,6 +34,11 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .findInPage: "Buscar en la página"
         case .printPage: "Imprimir…"
         case .capturePage: "Capturar página"
+        case .toggleDeveloperMode: "Activar o desactivar modo desarrollador en este sitio"
+        case .toggleConsole: "Mostrar u ocultar la consola"
+        case .inspectElement: "Inspeccionar elemento"
+        case .openWebInspector: "Abrir el inspector web"
+        case .toggleResponsive: "Vista móvil"
         case .viewSource: "Ver código fuente"
         case .pauseAllMedia: "Pausar todo el audio y vídeo"
         case .pictureInPicture: "Imagen en imagen"
@@ -84,6 +91,11 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .findInPage: "text.magnifyingglass"
         case .printPage: "printer"
         case .capturePage: "camera.viewfinder"
+        case .toggleDeveloperMode: "hammer"
+        case .toggleConsole: "terminal"
+        case .inspectElement: "scope"
+        case .openWebInspector: "wrench.and.screwdriver"
+        case .toggleResponsive: "iphone"
         case .viewSource: "chevron.left.forwardslash.chevron.right"
         case .pauseAllMedia: "speaker.slash"
         case .pictureInPicture: "pip.enter"
@@ -130,6 +142,10 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     public var shortcut: String? {
         switch self {
         case .copyURL: "⇧⌘C"
+        case .toggleConsole: "⌥⌘J"
+        case .openWebInspector: "⌥⌘I"
+        case .inspectElement: "⌥⌘C"
+        case .toggleResponsive: "⇧⌘M"
         case .copyURLAsMarkdown: "⌥⇧⌘C"
         case .reload: "⌘R"
         case .forceReload: "⇧⌘R"
@@ -162,6 +178,11 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .findInPage: "find search page"
         case .printPage: "print"
         case .capturePage: "capture screenshot captura pantalla"
+        case .toggleDeveloperMode: "developer mode modo desarrollador dev localhost programar"
+        case .toggleConsole: "console consola logs errores devtools"
+        case .inspectElement: "inspect element inspeccionar elemento devtools"
+        case .openWebInspector: "web inspector devtools herramientas desarrollo network red"
+        case .toggleResponsive: "responsive mobile movil móvil iphone tamaño"
         case .viewSource: "view source html codigo developer"
         case .pauseAllMedia: "mute all tabs silenciar pausar audio video"
         case .pictureInPicture: "picture in picture pip video flotante"
@@ -213,8 +234,10 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .copyURL, .copyURLAsMarkdown, .reload, .forceReload, .findInPage, .printPage, .capturePage,
              .viewSource, .pauseAllMedia, .zoomIn, .zoomOut, .resetZoom,
              .clearSiteCookiesAndRefresh, .clearSiteCacheAndRefresh, .closeTab, .duplicateTab, .renameTab,
-             .togglePin, .addToFavorites:
+             .togglePin, .addToFavorites, .toggleDeveloperMode, .openWebInspector, .inspectElement:
             return tab?.url != nil && tab?.isHome == false
+        case .toggleConsole, .toggleResponsive:
+            return tab?.isDeveloperMode == true
         case .pictureInPicture:
             return tab?.media?.hasVideo == true
         case .moveToToday:
@@ -249,6 +272,11 @@ extension Browser {
         case .findInPage: showFindBar()
         case .printPage: tab?.page?.printPage()
         case .capturePage: capturePage()
+        case .toggleDeveloperMode: toggleDeveloperMode()
+        case .toggleConsole: showsConsole.toggle()
+        case .inspectElement: tab?.page?.showInspector(selectingElement: true)
+        case .openWebInspector: tab?.page?.showInspector(selectingElement: false)
+        case .toggleResponsive: responsiveWidth = responsiveWidth == nil ? 390 : nil
         case .viewSource: viewSource()
         case .pictureInPicture:
             if let tab { tab.page?.setPictureInPicture(!(tab.media?.isInPictureInPicture ?? false)) }

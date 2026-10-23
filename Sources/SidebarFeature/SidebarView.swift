@@ -364,7 +364,19 @@ private struct TabRow: View {
                 .padding(.leading, 10 + indent)
                 .padding(.trailing, 4)
         }
-        .buttonStyle(SidebarRowStyle(isSelected: isSelected))
+        .buttonStyle(SidebarRowStyle(isSelected: isSelected, height: tab.isDeveloperMode ? 44 : Theme.rowHeight))
+        // Modo desarrollador (como en Arc): borde punteado amarillo alrededor de la pestaña.
+        .overlay {
+            if tab.isDeveloperMode {
+                RoundedRectangle(cornerRadius: Theme.cornerRadius + 2, style: .continuous)
+                    .strokeBorder(Color(red: 1.0, green: 0.82, blue: 0.22).opacity(0.9),
+                                  style: StrokeStyle(lineWidth: 1.6, dash: [4.5, 3.5]))
+                    .padding(-1)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .animation(Theme.spring, value: tab.isDeveloperMode)
         .sidebarDraggable(.tab(tab.id)) { .init(pageURL: tab.url, faviconURL: tab.faviconURL, title: tab.displayTitle, symbol: nil) }
         .nativeContextMenu { menuEntries() }
     }
@@ -441,9 +453,17 @@ private struct TabRowLabel: View {
             } else {
                 // El título usa todo el ancho y se desvanece al final; al pasar el ratón,
                 // el desvanecido se alarga para dejar sitio al botón de cerrar.
-                FadingText(tab.displayTitle, fade: 14, trailingClear: isHovering ? 24 : 0)
-                    .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
-                    .animation(Theme.hoverOut, value: isHovering)
+                VStack(alignment: .leading, spacing: 1) {
+                    FadingText(tab.displayTitle, fade: 14, trailingClear: isHovering ? 24 : 0)
+                        .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
+                        .animation(Theme.hoverOut, value: isHovering)
+                    if tab.isDeveloperMode {
+                        // En modo desarrollador se ve el servidor (p. ej. "localhost:3005").
+                        FadingText(DeveloperMode.hostAndPort(tab.url), fade: 14, trailingClear: isHovering ? 24 : 0)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color(theme.subtitle).opacity(1.5))
+                    }
+                }
             }
         }
         .overlay(alignment: .trailing) {

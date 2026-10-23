@@ -199,7 +199,24 @@ private struct WebContentArea: View {
         let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
         if let tab = browser.selectedTab, !tab.isHome {
             if let page = tab.page {
-                WebContentView(page: page, cornerRadius: Theme.cornerRadius)
+                VStack(spacing: 0) {
+                    if let width = browser.responsiveWidth, tab.isDeveloperMode {
+                        ResponsiveFrame(width: width) {
+                            WebContentView(page: page, cornerRadius: Theme.cornerRadius)
+                        }
+                    } else {
+                        WebContentView(page: page, cornerRadius: Theme.cornerRadius)
+                    }
+                    if browser.showsConsole && tab.isDeveloperMode {
+                        ConsolePanel(browser: browser, tab: tab)
+                            .frame(height: 240)
+                            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: Theme.cornerRadius,
+                                                              bottomTrailingRadius: Theme.cornerRadius, style: .continuous))
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(Theme.spring, value: browser.showsConsole)
+                .animation(Theme.spring, value: browser.responsiveWidth)
             } else {
                 // Pestaña hibernada: se despierta al mostrarse.
                 Color.white.clipShape(shape).task(id: tab.id) { tab.wake() }
@@ -301,5 +318,33 @@ private struct OnboardingHost: View {
 
     var body: some View {
         OnboardingView(model: model)
+    }
+}
+
+/// Vista móvil del modo desarrollador: la página al ancho de un dispositivo, centrada, con su medida.
+private struct ResponsiveFrame<Content: View>: View {
+    let width: Double
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        GeometryReader { geometry in
+            let shown = min(width, geometry.size.width - 32)
+            VStack(spacing: 6) {
+                Text("\(Int(shown)) × \(Int(geometry.size.height - 40)) px")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .frame(height: 22)
+                content
+                    .frame(width: shown)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.15)))
+                    .shadow(color: .black.opacity(0.35), radius: 16, y: 6)
+                    .padding(.bottom, 12)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(Color(white: 0.09))
+            )
+        }
     }
 }

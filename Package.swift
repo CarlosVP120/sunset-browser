@@ -17,7 +17,7 @@ let package = Package(
         // Barra lateral (equivalente a ARC_StorableSidebar / ARC_SidebarPlusButton).
         .target(name: "SidebarFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // Barra superior con navegación y dirección.
-        .target(name: "ToolbarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
+        .target(name: "ToolbarFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // Command Bar (equivalente a ARC_CommandBar): buscar, abrir y ejecutar acciones.
         .target(name: "CommandBarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // Extensiones: botones en la barra, panel de gestión e instalación (Chrome Web Store, .zip, .crx).

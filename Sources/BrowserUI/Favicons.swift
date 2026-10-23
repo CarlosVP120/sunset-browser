@@ -22,12 +22,18 @@ public final class FaviconCache {
         images[host]
     }
 
+    /// Clave de la caché: el dominio y, si lo hay, el puerto (cada proyecto en localhost tiene el suyo).
+    public static func key(for url: URL?) -> String? {
+        guard let host = url?.host(), !host.isEmpty else { return nil }
+        return url?.port.map { "\(host):\($0)" } ?? host
+    }
+
     /// Carga el icono del dominio desde disco o internet, si aún no se tiene.
     /// Si la página declara su propio icono, sustituye al `/favicon.ico` genérico.
     public func load(pageURL: URL?, iconURL: URL?) async {
         guard pageURL?.scheme == "http" || pageURL?.scheme == "https",
-              let host = pageURL?.host(), !host.isEmpty,
-              let candidate = iconURL ?? URL(string: "https://\(host)/favicon.ico")
+              let host = Self.key(for: pageURL),
+              let candidate = iconURL ?? URL(string: "\(pageURL?.scheme ?? "https")://\(host)/favicon.ico")
         else { return }
 
         let previous = requested[host]
@@ -74,7 +80,7 @@ public struct FaviconView: View {
         Group {
             if HomePage.isHome(pageURL) {
                 Image(systemName: "house.fill").resizable().scaledToFit().foregroundStyle(Theme.secondaryText)
-            } else if let host = pageURL?.host(), let image = cache.image(for: host) {
+            } else if let key = FaviconCache.key(for: pageURL), let image = cache.image(for: key) {
                 Image(nsImage: image).resizable().interpolation(.high)
                     .transition(.opacity)
             } else {
@@ -83,7 +89,7 @@ public struct FaviconView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
-        .task(id: "\(pageURL?.host() ?? "")|\(faviconURL?.absoluteString ?? "")") {
+        .task(id: "\(FaviconCache.key(for: pageURL) ?? "")|\(faviconURL?.absoluteString ?? "")") {
             await cache.load(pageURL: pageURL, iconURL: faviconURL)
         }
     }

@@ -17,6 +17,8 @@ enum WebKitFeatures {
         set(preferNear60FPS, enabled: false, on: preferences)
         set(scrollAnimator, enabled: true, on: preferences)
         set(pictureInPicture, enabled: true, on: preferences)
+        // Herramientas de desarrollo (inspector web y "Inspeccionar elemento"), como en Safari.
+        preferences.setValue(true, forKey: "developerExtrasEnabled")
     }
 
     @MainActor

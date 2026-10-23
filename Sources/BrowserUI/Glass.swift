@@ -176,25 +176,28 @@ public struct ChromeButtonStyle: ButtonStyle {
 /// Fila de la barra lateral: hover con el color del tema, selección con sombra y pulsación.
 public struct SidebarRowStyle: ButtonStyle {
     let isSelected: Bool
+    let height: CGFloat
 
-    public init(isSelected: Bool) {
+    public init(isSelected: Bool, height: CGFloat = Theme.rowHeight) {
         self.isSelected = isSelected
+        self.height = height
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        SidebarRow(configuration: configuration, isSelected: isSelected)
+        SidebarRow(configuration: configuration, isSelected: isSelected, height: height)
     }
 
     private struct SidebarRow: View {
         let configuration: Configuration
         let isSelected: Bool
+        let height: CGFloat
         @Environment(\.spaceTheme) private var theme
         @State private var isHovering = false
 
         var body: some View {
             configuration.label
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: Theme.rowHeight)
+                .frame(height: height)
                 .background {
                     ZStack {
                         RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)

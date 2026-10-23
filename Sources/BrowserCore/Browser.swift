@@ -33,6 +33,14 @@ public final class Browser {
     public var spaceEditor: SpaceEditorRequest?
     /// Ventana para ordenar, renombrar y borrar espacios.
     public var showsSpaceManager = false
+    /// Consola del modo desarrollador abierta bajo la página.
+    public var showsConsole = false {
+        didSet { if showsConsole { selectedTab?.markConsoleSeen() } }
+    }
+    /// Vista móvil del modo desarrollador: ancho simulado de la página (nil = ancho completo).
+    public var responsiveWidth: Double?
+    /// Sitios donde el usuario activó (true) o desactivó (false) a mano el modo desarrollador.
+    public private(set) var developerSites: [String: Bool] = [:]
     /// La bienvenida (o solo el importador), si hay que mostrarla.
     public var welcome: WelcomeRequest?
     /// Es la primera vez que se abre (no había barra lateral guardada).
@@ -83,6 +91,7 @@ public final class Browser {
         showsToolbar = defaults.object(forKey: "showsToolbar") as? Bool ?? true
         sidebarWidth = defaults.object(forKey: "sidebarWidth") as? Double ?? 240
         autoPictureInPicture = defaults.object(forKey: "autoPictureInPicture") as? Bool ?? true
+        developerSites = defaults.dictionary(forKey: "developerSites") as? [String: Bool] ?? [:]
         activeSpaceID = UUID()
 
         let saved = store?.load()
@@ -173,6 +182,30 @@ public final class Browser {
         } else {
             openTab(url)
         }
+    }
+
+    // MARK: - Modo desarrollador
+
+    /// ¿Este sitio va en modo desarrollador? Lo que elegiste a mano manda sobre lo automático.
+    public func isDeveloperMode(_ url: URL?) -> Bool {
+        if let key = DeveloperMode.siteKey(url), let choice = developerSites[key] { return choice }
+        return DeveloperMode.isLocalDevelopment(url)
+    }
+
+    /// Activa o desactiva el modo desarrollador para el sitio de la pestaña actual (se recuerda).
+    public func toggleDeveloperMode() {
+        guard let tab = selectedTab, let key = DeveloperMode.siteKey(tab.url) else { return }
+        let enabled = !isDeveloperMode(tab.url)
+        // Si coincide con lo automático, no hace falta recordarlo.
+        developerSites[key] = enabled == DeveloperMode.isLocalDevelopment(tab.url) ? nil : enabled
+        defaults.set(developerSites, forKey: "developerSites")
+        for tab in allTabs { tab.refreshDeveloperMode() }
+        if !enabled {
+            showsConsole = false
+            responsiveWidth = nil
+        }
+        showToast(enabled ? "Modo desarrollador activado en \(key)" : "Modo desarrollador desactivado en \(key)",
+                  symbol: "hammer")
     }
 
     /// Lleva una fijada o favorita de vuelta a su dirección (clic en la "/" de la barra lateral).
@@ -539,6 +572,11 @@ public final class Browser {
             if let tab, let url = tab.url { history.record(url: url, title: tab.title) }
         }
         tab.zoomForHost = { [weak self] host in self?.zoom(forHost: host) ?? 1 }
+        tab.developerModeFor = { [weak self] url in self?.isDeveloperMode(url) ?? DeveloperMode.isLocalDevelopment(url) }
+        tab.isConsoleVisible = { [weak self, weak tab] in
+            guard let self, let tab else { return false }
+            return showsConsole && selectedTab?.id == tab.id
+        }
         tab.onRequestActivate = { [weak self, weak tab] in
             if let self, let tab { reveal(tab) }
         }

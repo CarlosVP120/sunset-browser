@@ -28,6 +28,14 @@ public final class BrowserTab: Identifiable {
     /// La dirección "de casa" de una pestaña fijada o favorita (como en Arc): puedes navegar
     /// desde ella, pero al cerrarla vuelve aquí. `nil` en las pestañas normales.
     public internal(set) var pinnedURL: URL?
+    /// Modo desarrollador (sitio local o activado a mano): barra con rayas y herramientas.
+    public private(set) var isDeveloperMode = false
+    /// Lo que la página escribió en la consola mientras estaba en modo desarrollador.
+    public internal(set) var console = ConsoleLog()
+    /// El navegador decide qué sitios van en modo desarrollador.
+    @ObservationIgnored var developerModeFor: ((URL?) -> Bool)?
+    /// Si la consola de esta pestaña está a la vista (sus errores no cuentan como "sin ver").
+    @ObservationIgnored var isConsoleVisible: (() -> Bool)?
 
     @ObservationIgnored private let makePage: @MainActor () -> WebPage
     @ObservationIgnored private var savedInteractionState: Any?
@@ -128,6 +136,8 @@ public final class BrowserTab: Identifiable {
         page.onRequestNewTab = { [weak self] url in self?.onRequestNewTab?(url) }
         page.onMediaChange = { [weak self] state in self?.updateMedia(state) }
         if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
+        self.page = page
+        refreshDeveloperMode(force: true)
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
         } else if let url, !HomePage.isHome(url) {
@@ -137,6 +147,27 @@ public final class BrowserTab: Identifiable {
         self.page = page
         return page
     }
+
+    /// Enciende o apaga el modo desarrollador según el sitio actual.
+    func refreshDeveloperMode(force: Bool = false) {
+        let enabled = developerModeFor?(url) ?? false
+        guard force || enabled != isDeveloperMode else { return }
+        isDeveloperMode = enabled
+        page?.setDeveloperMode(enabled) { [weak self] message in
+            guard let self else { return }
+            console.append(message, isVisible: isConsoleVisible?() ?? false)
+        }
+    }
+
+    /// Ejecuta algo escrito en la consola de Sunset y anota la orden y el resultado.
+    public func runInConsole(_ code: String) async {
+        console.append(ConsoleMessage(level: .debug, text: "› " + code), isVisible: true)
+        let result = await wake().evaluateInConsole(code)
+        console.append(ConsoleMessage(level: .result, text: result), isVisible: true)
+    }
+
+    public func clearConsole() { console.clear() }
+    public func markConsoleSeen() { console.markSeen() }
 
     /// Libera la página de memoria conservando la URL, el título y el historial.
     public func hibernate() {
@@ -200,6 +231,7 @@ public final class BrowserTab: Identifiable {
             page?.zoom = zoom
         }
         url = snapshot.url ?? url
+        if before.1?.host() != url?.host() || before.1?.port != url?.port { refreshDeveloperMode() }
         faviconURL = snapshot.faviconURL ?? faviconURL
         isLoading = snapshot.isLoading
         progress = snapshot.progress
