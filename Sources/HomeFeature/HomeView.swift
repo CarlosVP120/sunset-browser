@@ -75,7 +75,8 @@ public struct HomeView: View {
 
 private struct Clock: View {
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        // Una vez por segundo; en pausa con un menú abierto (ver MenuTracking).
+        TimelineView(.animation(minimumInterval: 1, paused: MenuTracking.shared.isTracking)) { context in
             VStack(spacing: 4) {
                 Text(context.date, format: .dateTime.hour().minute())
                     .font(.system(size: 112, weight: .thin, design: .rounded))

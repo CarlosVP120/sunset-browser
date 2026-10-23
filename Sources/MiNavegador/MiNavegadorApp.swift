@@ -1,6 +1,7 @@
 import SwiftUI
 import BrowserCore
 import BrowserEngine
+import BrowserUI
 
 @main
 struct MiNavegadorApp: App {
@@ -30,6 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine = WebKitEngine()
         browser = Browser(engine: engine)
         super.init()
+
+        // Pausa las animaciones mientras haya un menú abierto (si no, el menú se congela).
+        MenuTracking.start()
 
         engine.downloads.onFinish = { [browser] record in
             browser.showToast("Descargado: \(record.filename)", symbol: "arrow.down.circle.fill")

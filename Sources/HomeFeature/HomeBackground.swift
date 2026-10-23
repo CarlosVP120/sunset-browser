@@ -1,40 +1,20 @@
 import SwiftUI
+import QuartzCore
 import BrowserCore
 import BrowserUI
 
 /// Fondo de Inicio: el color del espacio con manchas de luz suaves que se mueven muy despacio
 /// (como una aurora) y el grano del tema. Pensado para quedarse en pantalla sin cansar.
+///
+/// Las luces se animan con Core Animation: el movimiento lo hace el compositor del sistema y la
+/// app no trabaja en cada fotograma (con SwiftUI costaba ~40 % de CPU en reposo).
 struct HomeBackground: View {
     let theme: SpaceTheme
 
     var body: some View {
-        let base = theme.background.first ?? .navy
-        let lights = Self.lights(for: theme)
-
         ZStack {
-            Color(base)
-            // 20 fotogramas por segundo bastan para un movimiento tan lento, y gasta menos.
-            TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
-                let time = context.date.timeIntervalSinceReferenceDate
-                Canvas { canvas, size in
-                    let radius = max(size.width, size.height) * 0.55
-                    for (index, light) in lights.enumerated() {
-                        let phase = time * (0.035 + Double(index) * 0.012) + Double(index) * 2.1
-                        let center = CGPoint(
-                            x: size.width * (0.5 + 0.38 * cos(phase)),
-                            y: size.height * (0.5 + 0.32 * sin(phase * 1.3))
-                        )
-                        let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-                        canvas.fill(
-                            Path(ellipseIn: rect),
-                            with: .radialGradient(
-                                Gradient(colors: [Color(light).opacity(theme.isDark ? 0.55 : 0.45), .clear]),
-                                center: center, startRadius: 0, endRadius: radius
-                            )
-                        )
-                    }
-                }
-            }
+            Color(theme.background.first ?? .navy)
+            AuroraLayerView(colors: Self.lights(for: theme).map { Color($0) }, isDark: theme.isDark)
             if theme.grain > 0 {
                 GrainOverlay(intensity: theme.grain)
             }
@@ -51,6 +31,80 @@ struct HomeBackground: View {
             return theme.isDark
                 ? SpaceColor(hue: hue, saturation: min(1, seed.saturation * 0.8 + 0.1), brightness: 0.55 + 0.1 * Double(index))
                 : SpaceColor(hue: hue, saturation: seed.saturation * 0.45, brightness: 1)
+        }
+    }
+}
+
+/// Las luces: capas con degradado radial que recorren elipses lentas, cada una a su ritmo.
+private struct AuroraLayerView: NSViewRepresentable {
+    let colors: [Color]
+    let isDark: Bool
+
+    func makeNSView(context: Context) -> AuroraView {
+        AuroraView()
+    }
+
+    func updateNSView(_ view: AuroraView, context: Context) {
+        view.update(colors: colors.map { NSColor($0).cgColor }, opacity: isDark ? 0.55 : 0.45)
+    }
+
+    final class AuroraView: NSView {
+        private var lights: [CAGradientLayer] = []
+        private var lastSize: CGSize = .zero
+        /// Duración de una vuelta de cada luz, en segundos (muy lento a propósito).
+        private let periods: [CFTimeInterval] = [150, 110, 85]
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            layer?.masksToBounds = true
+            for _ in periods {
+                let light = CAGradientLayer()
+                light.type = .radial
+                light.startPoint = CGPoint(x: 0.5, y: 0.5)
+                light.endPoint = CGPoint(x: 1, y: 1)
+                layer?.addSublayer(light)
+                lights.append(light)
+            }
+        }
+
+        required init?(coder: NSCoder) { fatalError("No se usa desde Interface Builder") }
+
+        // Solo dibuja: no recibe clics.
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        func update(colors: [CGColor], opacity: CGFloat) {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.6)
+            for (light, color) in zip(lights, colors) {
+                light.colors = [color.copy(alpha: opacity) ?? color, color.copy(alpha: 0) ?? color]
+            }
+            CATransaction.commit()
+        }
+
+        override func layout() {
+            super.layout()
+            guard bounds.size != lastSize, bounds.width > 0 else { return }
+            lastSize = bounds.size
+            let diameter = max(bounds.width, bounds.height) * 1.1
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for (index, light) in lights.enumerated() {
+                light.bounds = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+                light.position = CGPoint(x: bounds.midX, y: bounds.midY)
+                // Elipse alrededor del centro; cada luz empieza en otro punto y gira a su ritmo.
+                let orbit = CGRect(x: bounds.width * 0.12, y: bounds.height * 0.18,
+                                   width: bounds.width * 0.76, height: bounds.height * 0.64)
+                let path = CGPath(ellipseIn: orbit, transform: nil)
+                let animation = CAKeyframeAnimation(keyPath: "position")
+                animation.path = path
+                animation.duration = periods[index]
+                animation.repeatCount = .infinity
+                animation.calculationMode = .paced
+                animation.timeOffset = periods[index] * Double(index) / 3
+                light.add(animation, forKey: "orbit")
+            }
+            CATransaction.commit()
         }
     }
 }

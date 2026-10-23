@@ -1,25 +1,15 @@
 import SwiftUI
 import BrowserCore
 
-/// Haz de luz ("tracing beam") que recorre el borde de la página mientras carga:
-/// una línea fina de un solo color neutro con estela que se desvanece. Al terminar,
-/// el haz se alarga hasta cerrar todo el borde y se apaga.
+/// Haz de luz ("tracing beam") que recorre el borde de la página mientras carga: una línea fina
+/// de un solo color, en dos tonos (núcleo blanco y contorno oscuro) para verse en cualquier
+/// página, con estela. Al terminar, el borde entero destella y se apaga.
+///
+/// Se anima con Core Animation: el movimiento lo hace el compositor del sistema, sin recalcular
+/// la ventana en cada fotograma (con SwiftUI, cada fotograma recalculaba toda la ventana).
 public struct PageEdgeGlow: View {
     let tab: BrowserTab?
     var cornerRadius: CGFloat
-
-    @State private var startedAt: Date?
-    @State private var finishedAt: Date?
-    @State private var stopTask: Task<Void, Never>?
-    @Environment(\.spaceTheme) private var theme
-
-    /// Vueltas por segundo.
-    private static let speed = 0.55
-    /// Largo del haz, en fracción del borde.
-    private static let beamLength = 0.2
-    private static let slices = 16
-    private static let finishDuration = 0.35
-    private static let fadeDuration = 0.45
 
     public init(tab: BrowserTab?, cornerRadius: CGFloat = Theme.cornerRadius) {
         self.tab = tab
@@ -27,91 +17,188 @@ public struct PageEdgeGlow: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(paused: startedAt == nil)) { context in
-            if let startedAt {
-                beam(at: context.date, startedAt: startedAt)
-            }
-        }
-        .allowsHitTesting(false)
-        .onChange(of: tab?.isLoading, initial: true) { _, isLoading in update(isLoading: isLoading == true) }
-        .onChange(of: tab?.id) {
-            // Al cambiar de pestaña no se anima la salida: se muestra su estado tal cual.
-            stopTask?.cancel()
-            finishedAt = nil
-            startedAt = tab?.isLoading == true ? Date() : nil
-        }
+        BeamLayerView(isLoading: tab?.isLoading == true, tabID: tab?.id, cornerRadius: cornerRadius)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct BeamLayerView: NSViewRepresentable {
+    let isLoading: Bool
+    let tabID: UUID?
+    let cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> BeamView {
+        BeamView(cornerRadius: cornerRadius)
     }
 
-    private func beam(at now: Date, startedAt: Date) -> some View {
-        let elapsed = now.timeIntervalSince(startedAt)
-        let head = (elapsed * Self.speed).truncatingRemainder(dividingBy: 1)
+    func updateNSView(_ view: BeamView, context: Context) {
+        view.update(isLoading: isLoading, tabID: tabID)
+    }
 
-        // Al terminar: el haz crece hasta rodear el borde y luego se apaga.
-        var length = Self.beamLength
-        var opacity = min(1, elapsed / 0.25)
-        if let finishedAt {
-            let finishing = now.timeIntervalSince(finishedAt)
-            let grow = min(1, finishing / Self.finishDuration)
-            length += (1 - Self.beamLength) * (1 - pow(1 - grow, 3))
-            opacity *= 1 - min(1, max(0, finishing - Self.finishDuration * 0.8) / Self.fadeDuration)
+    final class BeamView: NSView {
+        private let cornerRadius: CGFloat
+        private let container = CALayer()
+        private let track = CAShapeLayer()
+        private let flash = CAShapeLayer()
+        /// Cada tramo de la estela: contorno oscuro + núcleo blanco.
+        private var slices: [(outline: CAShapeLayer, core: CAShapeLayer)] = []
+        private var isLoading = false
+        private var tabID: UUID?
+        private var lastSize: CGSize = .zero
+
+        /// Segundos por vuelta, largo del haz (fracción del borde) y número de tramos de la estela.
+        private let period: CFTimeInterval = 1.8
+        private let beamLength = 0.2
+        private let sliceCount = 12
+
+        init(cornerRadius: CGFloat) {
+            self.cornerRadius = cornerRadius
+            super.init(frame: .zero)
+            wantsLayer = true
+            layer?.addSublayer(container)
+            container.opacity = 0
+
+            track.fillColor = nil
+            track.strokeColor = NSColor.white.withAlphaComponent(0.3).cgColor
+            track.lineWidth = 1
+            track.shadowColor = NSColor.black.cgColor
+            track.shadowOpacity = 0.5
+            track.shadowRadius = 1
+            track.shadowOffset = .zero
+            container.addSublayer(track)
+
+            for index in 0..<sliceCount {
+                let strength = Float(pow(Double(index + 1) / Double(sliceCount), 1.8))
+                let outline = CAShapeLayer()
+                outline.fillColor = nil
+                outline.strokeColor = NSColor.black.withAlphaComponent(0.55).cgColor
+                outline.lineWidth = index == sliceCount - 1 ? 6.5 : 4.5
+                outline.lineCap = .round
+                outline.opacity = strength
+                let core = CAShapeLayer()
+                core.fillColor = nil
+                core.strokeColor = NSColor.white.cgColor
+                core.lineWidth = index == sliceCount - 1 ? 3.5 : 2
+                core.lineCap = .round
+                core.opacity = strength
+                container.addSublayer(outline)
+                container.addSublayer(core)
+                slices.append((outline, core))
+            }
+
+            flash.fillColor = nil
+            flash.strokeColor = NSColor.white.cgColor
+            flash.lineWidth = 2
+            flash.opacity = 0
+            container.addSublayer(flash)
         }
 
-        // Dos tonos para que se vea sobre cualquier página: núcleo blanco y contorno oscuro.
-        let core = Color.white
-        let outline = Color.black.opacity(0.55)
-        // Sobre el borde de la página, por dentro: así siempre queda encima de su contenido.
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).inset(by: 1.5)
+        required init?(coder: NSCoder) { fatalError("No se usa desde Interface Builder") }
 
-        return ZStack {
-            // Rastro tenue de todo el borde (también en dos tonos).
-            shape.stroke(outline.opacity(0.35), lineWidth: 3)
-            shape.stroke(core.opacity(0.35), lineWidth: 1)
-            // El haz: tramos cada vez más intensos hacia la cabeza, contorno debajo y núcleo encima.
-            ForEach(0..<Self.slices, id: \.self) { slice in
-                let sliceLength = length / Double(Self.slices)
-                let end = head - length + sliceLength * Double(slice + 1)
-                let strength = pow(Double(slice + 1) / Double(Self.slices), 1.8)
-                ForEach(Self.segments(from: end - sliceLength, to: end), id: \.self) { segment in
-                    let piece = shape.trim(from: segment.lowerBound, to: segment.upperBound)
-                    ZStack {
-                        piece.stroke(outline.opacity(strength), style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
-                        piece.stroke(core.opacity(strength), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+        // Solo dibuja: los clics y el scroll pasan a la página de debajo.
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func layout() {
+            super.layout()
+            guard bounds.size != lastSize, bounds.width > 0 else { return }
+            lastSize = bounds.size
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            container.frame = bounds
+            let rect = bounds.insetBy(dx: 1.5, dy: 1.5)
+            let radius = max(0, cornerRadius - 1.5)
+            let lap = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+            // El borde dos veces seguidas: así el haz puede "dar la vuelta" sin saltos.
+            let twoLaps = CGMutablePath()
+            twoLaps.addPath(lap)
+            twoLaps.addPath(lap)
+            track.path = lap
+            flash.path = lap
+            for slice in slices {
+                slice.outline.path = twoLaps
+                slice.core.path = twoLaps
+            }
+            CATransaction.commit()
+            if isLoading { startOrbit() }
+        }
+
+        func update(isLoading: Bool, tabID: UUID?) {
+            // Al cambiar de pestaña no se anima: se muestra su estado tal cual.
+            if tabID != self.tabID {
+                self.tabID = tabID
+                self.isLoading = isLoading
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                container.removeAllAnimations()
+                container.opacity = isLoading ? 1 : 0
+                CATransaction.commit()
+                if isLoading { startOrbit() } else { stopOrbit() }
+                return
+            }
+            guard isLoading != self.isLoading else { return }
+            self.isLoading = isLoading
+            if isLoading { begin() } else { finish() }
+        }
+
+        private func begin() {
+            container.removeAllAnimations()
+            startOrbit()
+            let fadeIn = CABasicAnimation(keyPath: "opacity")
+            fadeIn.fromValue = container.presentation()?.opacity ?? 0
+            fadeIn.toValue = 1
+            fadeIn.duration = 0.25
+            container.opacity = 1
+            container.add(fadeIn, forKey: "fade")
+        }
+
+        /// Destello de todo el borde y desvanecido.
+        private func finish() {
+            let pulse = CAKeyframeAnimation(keyPath: "opacity")
+            pulse.values = [0, 0.9, 0]
+            pulse.keyTimes = [0, 0.25, 1]
+            pulse.duration = 0.7
+            flash.add(pulse, forKey: "pulse")
+
+            let fadeOut = CABasicAnimation(keyPath: "opacity")
+            fadeOut.fromValue = 1
+            fadeOut.toValue = 0
+            fadeOut.beginTime = CACurrentMediaTime() + 0.15
+            fadeOut.duration = 0.6
+            fadeOut.fillMode = .backwards
+            container.opacity = 0
+            container.add(fadeOut, forKey: "fade")
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+                guard let self, !self.isLoading else { return }
+                self.stopOrbit()
+            }
+        }
+
+        private func startOrbit() {
+            let now = CACurrentMediaTime()
+            let sliceLength = beamLength / Double(sliceCount)
+            for (index, slice) in slices.enumerated() {
+                // Posiciones en el camino de dos vueltas (0…1 = dos vueltas): avanza media unidad por vuelta.
+                let end = (1 - beamLength + sliceLength * Double(index + 1)) / 2
+                let start = end - sliceLength / 2
+                for layer in [slice.outline, slice.core] {
+                    for (key, from) in [("strokeStart", start), ("strokeEnd", end)] {
+                        let animation = CABasicAnimation(keyPath: key)
+                        animation.fromValue = from
+                        animation.toValue = from + 0.5
+                        animation.duration = period
+                        animation.repeatCount = .infinity
+                        animation.beginTime = now
+                        layer.add(animation, forKey: key)
                     }
                 }
             }
-            // La cabeza: un punto más ancho y nítido.
-            ForEach(Self.segments(from: head - 0.006, to: head), id: \.self) { segment in
-                let piece = shape.trim(from: segment.lowerBound, to: segment.upperBound)
-                ZStack {
-                    piece.stroke(outline, style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
-                    piece.stroke(core, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
-                }
-            }
-            .opacity(finishedAt == nil ? 1 : 0)
         }
-        .opacity(opacity)
-    }
 
-    /// Un tramo del borde, partido en dos si cruza el punto de inicio.
-    private static func segments(from start: Double, to end: Double) -> [ClosedRange<Double>] {
-        guard end - start < 1 else { return [0...1] }
-        let from = start - floor(start), to = end - floor(start)
-        if to <= 1 { return [from...to] }
-        return [from...1, 0...(to - 1)]
-    }
-
-    private func update(isLoading: Bool) {
-        stopTask?.cancel()
-        if isLoading {
-            if startedAt == nil || finishedAt != nil { startedAt = Date() }
-            finishedAt = nil
-        } else if startedAt != nil, finishedAt == nil {
-            finishedAt = Date()
-            stopTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(Self.finishDuration + Self.fadeDuration + 0.1))
-                guard !Task.isCancelled else { return }
-                startedAt = nil
-                finishedAt = nil
+        private func stopOrbit() {
+            for slice in slices {
+                slice.outline.removeAllAnimations()
+                slice.core.removeAllAnimations()
             }
         }
     }
