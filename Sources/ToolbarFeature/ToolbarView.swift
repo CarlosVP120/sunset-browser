@@ -2,17 +2,18 @@ import SwiftUI
 import BrowserCore
 import BrowserUI
 
-/// Barra superior (la opción "Show Toolbar" de Arc): navegación, dirección centrada y acciones.
-public struct ToolbarView: View {
+/// Barra superior (la opción "Show Toolbar" de Arc): navegación, dirección centrada y,
+/// a la derecha, lo que aporte la app (los botones de extensiones).
+public struct ToolbarView<Trailing: View>: View {
     let browser: Browser
+    let trailing: Trailing
 
-    public init(browser: Browser) {
+    public init(browser: Browser, @ViewBuilder trailing: () -> Trailing) {
         self.browser = browser
+        self.trailing = trailing()
     }
 
     public var body: some View {
-        let tab = browser.selectedTab
-
         ZStack {
             HStack(spacing: 2) {
                 if !browser.showsSidebar {
@@ -24,23 +25,24 @@ public struct ToolbarView: View {
                     .help("Mostrar la barra lateral (⌘S)")
                     .transition(.opacity)
                 }
-                NavigationButtons(tab: tab)
+                NavigationButtons(tab: browser.selectedTab)
                 Spacer()
-                Button { browser.perform(.copyURL) } label: {
-                    Image(systemName: "link")
-                }
-                .disabled(tab?.url == nil)
-                .help("Copiar enlace (⇧⌘C)")
+                trailing
             }
             .buttonStyle(ChromeButtonStyle())
 
             AddressButton(browser: browser, style: .toolbar)
-                .frame(maxWidth: 460)
-                .padding(.horizontal, 120)
+                .fixedSize()
         }
         .padding(.leading, browser.showsSidebar ? 2 : Theme.windowButtonsInset)
         .padding(.trailing, 6)
         .frame(height: Theme.toolbarHeight)
         .animation(Theme.spring, value: browser.showsSidebar)
+    }
+}
+
+public extension ToolbarView where Trailing == EmptyView {
+    init(browser: Browser) {
+        self.init(browser: browser) { EmptyView() }
     }
 }

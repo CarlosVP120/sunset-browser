@@ -1,11 +1,32 @@
 import SwiftUI
 import BrowserCore
+import BrowserEngine
+import ExtensionsFeature
 
 /// Atajos de teclado del menú, como en Arc.
 struct BrowserCommands: Commands {
     let browser: Browser
+    let engine: WebKitEngine
 
     var body: some Commands {
+        CommandMenu("Extensiones") {
+            if #available(macOS 15.4, *) {
+                let host = engine.extensions
+                let storeID = WebExtensionsHost.chromeWebStoreID(from: browser.selectedTab?.url)
+                Button("Añadir esta extensión desde Chrome Web Store") {
+                    if let storeID { Task { await host.installFromChromeWebStore(id: storeID) } }
+                }
+                .disabled(storeID == nil)
+                Button("Instalar desde archivo…") { ExtensionInstaller.chooseFile(host: host) }
+                Divider()
+                Button("Abrir Chrome Web Store") {
+                    browser.openTab(URL(string: "https://chromewebstore.google.com/")!)
+                }
+            } else {
+                Text("Las extensiones necesitan macOS 15.4 o posterior")
+            }
+        }
+
         CommandGroup(replacing: .newItem) {
             Button("Nueva pestaña") { browser.newTab() }
                 .keyboardShortcut("t")

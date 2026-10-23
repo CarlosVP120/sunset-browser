@@ -9,9 +9,16 @@ final class FakePage: WebPage {
     var onChange: (@MainActor (WebPageSnapshot) -> Void)?
     var interactionState: Any? { "historial" }
     var zoom: Double = 1
+    var onRequestActivate: (@MainActor () -> Void)?
+    var onRequestClose: (@MainActor () -> Void)?
+    var onRequestNewTab: (@MainActor (URL) -> Void)?
+    private(set) var isActive = false
+    private(set) var didClose = false
     private(set) var loadedURLs: [URL] = []
     private(set) var restoredState: Any?
 
+    func setActive(_ isActive: Bool) { self.isActive = isActive }
+    func willClose() { didClose = true }
     func load(_ url: URL) { loadedURLs.append(url) }
     func restore(interactionState: Any) { restoredState = interactionState }
     func goBack() {}

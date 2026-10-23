@@ -5,18 +5,21 @@ import BrowserUI
 /// Barra lateral vertical: favoritos, espacio, pestañas fijadas y carpetas, pestañas de hoy y espacios.
 public struct SidebarView: View {
     let browser: Browser
+    /// Lo que la app añade arriba a la derecha (los botones de extensiones).
+    let accessory: AnyView?
     /// Hacia dónde se desliza el contenido al cambiar de espacio.
     @State private var spaceTransitionEdge: Edge = .trailing
 
-    public init(browser: Browser) {
+    public init(browser: Browser, accessory: AnyView? = nil) {
         self.browser = browser
+        self.accessory = accessory
     }
 
     public var body: some View {
         let space = browser.activeSpace
 
         VStack(spacing: 0) {
-            TopRow(browser: browser)
+            TopRow(browser: browser, accessory: accessory)
 
             if !browser.showsToolbar {
                 AddressButton(browser: browser, style: .sidebar)
@@ -115,6 +118,7 @@ private struct SpaceContent: View {
 /// Fila superior: deja sitio a los botones de la ventana y muestra el botón de la barra lateral.
 private struct TopRow: View {
     let browser: Browser
+    let accessory: AnyView?
 
     var body: some View {
         HStack(spacing: 2) {
@@ -129,6 +133,7 @@ private struct TopRow: View {
             if !browser.showsToolbar {
                 NavigationButtons(tab: browser.selectedTab)
             }
+            if let accessory { accessory }
         }
         .buttonStyle(ChromeButtonStyle())
         .padding(.leading, Theme.windowButtonsInset - 8)

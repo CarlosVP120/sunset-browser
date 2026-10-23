@@ -38,6 +38,17 @@ public protocol WebPage: AnyObject {
     /// Zoom de la página (1 = 100 %).
     var zoom: Double { get set }
 
+    /// Peticiones que llegan de fuera (p. ej. una extensión): mostrar o cerrar esta pestaña.
+    var onRequestActivate: (@MainActor () -> Void)? { get set }
+    var onRequestClose: (@MainActor () -> Void)? { get set }
+    /// Un enlace pide abrirse en otra pestaña (`target="_blank"`, `window.open`).
+    var onRequestNewTab: (@MainActor (URL) -> Void)? { get set }
+
+    /// Si es la pestaña visible del navegador.
+    func setActive(_ isActive: Bool)
+    /// La página se va a descartar (hibernación o cierre).
+    func willClose()
+
     func load(_ url: URL)
     func restore(interactionState: Any)
     func goBack()

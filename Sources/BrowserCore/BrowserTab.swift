@@ -22,6 +22,10 @@ public final class BrowserTab: Identifiable {
     @ObservationIgnored var onStateChange: (() -> Void)?
     /// Zoom guardado para cada dominio.
     @ObservationIgnored var zoomForHost: ((String) -> Double)?
+    /// Peticiones de la página o de una extensión, que resuelve el navegador.
+    @ObservationIgnored var onRequestActivate: (() -> Void)?
+    @ObservationIgnored var onRequestClose: (() -> Void)?
+    @ObservationIgnored var onRequestNewTab: ((URL) -> Void)?
 
     init(
         id: UUID = UUID(),
@@ -53,6 +57,9 @@ public final class BrowserTab: Identifiable {
 
         let page = makePage()
         page.onChange = { [weak self] snapshot in self?.apply(snapshot) }
+        page.onRequestActivate = { [weak self] in self?.onRequestActivate?() }
+        page.onRequestClose = { [weak self] in self?.onRequestClose?() }
+        page.onRequestNewTab = { [weak self] url in self?.onRequestNewTab?(url) }
         if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
@@ -68,6 +75,7 @@ public final class BrowserTab: Identifiable {
         guard let page else { return }
         savedInteractionState = page.interactionState
         page.stopLoading()
+        page.willClose()
         page.onChange = nil
         self.page = nil
         isLoading = false

@@ -5,11 +5,14 @@ import BrowserUI
 import SidebarFeature
 import ToolbarFeature
 import CommandBarFeature
+import ExtensionsFeature
 
 struct BrowserWindow: View {
     let browser: Browser
+    let engine: WebKitEngine
     /// Barra lateral flotante al acercar el ratón al borde izquierdo con la barra oculta.
     @State private var isPeekingSidebar = false
+    @State private var isResizingSidebar = false
 
     var body: some View {
         let theme = browser.activeSpace.theme
@@ -17,14 +20,15 @@ struct BrowserWindow: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
                 if browser.showsSidebar {
-                    SidebarView(browser: browser)
-                        .frame(width: Theme.sidebarWidth)
+                    SidebarView(browser: browser, accessory: sidebarAccessory)
+                        .frame(width: browser.sidebarWidth)
                         .transition(.move(edge: .leading).combined(with: .opacity))
+                        .zIndex(1)
                 }
 
                 VStack(spacing: 0) {
                     if browser.showsToolbar {
-                        ToolbarView(browser: browser)
+                        ToolbarView(browser: browser) { extensionsToolbar }
                             .environment(\.colorScheme, theme.isDark ? .dark : .light)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
@@ -41,7 +45,17 @@ struct BrowserWindow: View {
                 }
             }
 
-            if !browser.showsSidebar {
+            // El borde para redimensionar vive fuera de la barra: así el arrastre sigue
+            // aunque la barra se colapse a mitad del gesto.
+            if browser.showsSidebar || isResizingSidebar {
+                SidebarResizeHandle(browser: browser, isResizing: $isResizingSidebar)
+                    .frame(width: 10)
+                    .frame(maxHeight: .infinity)
+                    .offset(x: (browser.showsSidebar ? browser.sidebarWidth : 0) - 5)
+                    .zIndex(2)
+            }
+
+            if !browser.showsSidebar && !isResizingSidebar {
                 peekingSidebar
             }
 
@@ -66,6 +80,18 @@ struct BrowserWindow: View {
     }
 
     @ViewBuilder
+    private var extensionsToolbar: some View {
+        if #available(macOS 15.4, *) {
+            ExtensionsToolbar(browser: browser, host: engine.extensions)
+        }
+    }
+
+    /// Con la barra superior oculta, las extensiones van arriba en la barra lateral.
+    private var sidebarAccessory: AnyView? {
+        browser.showsToolbar ? nil : AnyView(extensionsToolbar)
+    }
+
+    @ViewBuilder
     private var peekingSidebar: some View {
         // Franja invisible en el borde: al tocarla aparece la barra lateral flotante.
         Color.clear
@@ -75,8 +101,8 @@ struct BrowserWindow: View {
             .onHover { if $0 { withAnimation(Theme.spring) { isPeekingSidebar = true } } }
 
         if isPeekingSidebar {
-            SidebarView(browser: browser)
-                .frame(width: Theme.sidebarWidth)
+            SidebarView(browser: browser, accessory: sidebarAccessory)
+                .frame(width: browser.sidebarWidth)
                 .background(SpaceBackground(theme: browser.activeSpace.theme))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(

@@ -13,7 +13,6 @@ public enum Theme {
 
     /// Altura de la barra superior; centra los botones de la ventana.
     public static let toolbarHeight: CGFloat = 30
-    public static let sidebarWidth: CGFloat = 240
     public static let rowHeight: CGFloat = 32
     public static let cornerRadius: CGFloat = 8
     /// Espacio que ocupan los botones de cerrar/minimizar/maximizar.

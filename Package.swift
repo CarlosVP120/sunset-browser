@@ -20,12 +20,14 @@ let package = Package(
         .target(name: "ToolbarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // Command Bar (equivalente a ARC_CommandBar): buscar, abrir y ejecutar acciones.
         .target(name: "CommandBarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
+        // Extensiones: botones en la barra, panel de gestión e instalación (Chrome Web Store, .zip, .crx).
+        .target(name: "ExtensionsFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // La app: ventana, menús y contenido web.
         .executableTarget(
             name: "MiNavegador",
             dependencies: [
                 "BrowserEngine", "BrowserCore", "BrowserUI",
-                "SidebarFeature", "ToolbarFeature", "CommandBarFeature",
+                "SidebarFeature", "ToolbarFeature", "CommandBarFeature", "ExtensionsFeature",
             ]
         ),
         .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore"]),

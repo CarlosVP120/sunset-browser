@@ -201,12 +201,7 @@ extension Browser {
                 openTab(url)
             }
         case .switchToTab(let id):
-            guard let tab = tab(withID: id) else { return }
-            if !isFavorite(tab), let space = spaces.first(where: { $0.allTabs.contains { $0.id == id } }),
-               space.id != activeSpaceID {
-                activate(space)
-            }
-            select(tab)
+            if let tab = tab(withID: id) { reveal(tab) }
         case .switchToSpace(let id):
             if let space = spaces.first(where: { $0.id == id }) { activate(space) }
         case .command(let command):

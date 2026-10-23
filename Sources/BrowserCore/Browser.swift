@@ -21,6 +21,11 @@ public final class Browser {
     public var showsToolbar: Bool {
         didSet { defaults.set(showsToolbar, forKey: "showsToolbar") }
     }
+    /// Ancho de la barra lateral, que se cambia arrastrando su borde.
+    public var sidebarWidth: Double {
+        didSet { defaults.set(sidebarWidth, forKey: "sidebarWidth") }
+    }
+    public static let sidebarWidthRange: ClosedRange<Double> = 180...440
     /// Minutos sin usarse tras los que una pestaña se hiberna.
     public var hibernateAfter: TimeInterval = 10 * 60
 
@@ -46,6 +51,7 @@ public final class Browser {
         self.defaults = defaults
         history = History(fileURL: historyFileURL)
         showsToolbar = defaults.object(forKey: "showsToolbar") as? Bool ?? true
+        sidebarWidth = defaults.object(forKey: "sidebarWidth") as? Double ?? 240
         activeSpaceID = UUID()
 
         if let snapshot = store?.load() ?? (importFromArc ? try? ArcImporter.load() : nil) {
@@ -61,7 +67,7 @@ public final class Browser {
             activeSpaceID = spaces[0].id
         }
         // Al arrancar solo se carga la pestaña visible; las demás esperan a que las abras.
-        selectedTab?.wake()
+        showSelectedTab()
 
         if startsBackgroundWork {
             startHibernationTimer()
@@ -97,6 +103,7 @@ public final class Browser {
         space.tabs.insert(tab, at: 0)
         space.selectedTabID = tab.id
         tab.wake()
+        syncActivePage()
         scheduleSave()
         return tab
     }
@@ -132,6 +139,7 @@ public final class Browser {
     public func select(_ tab: BrowserTab) {
         activeSpace.selectedTabID = tab.id
         tab.wake()
+        syncActivePage()
         scheduleSave()
     }
 
@@ -156,6 +164,7 @@ public final class Browser {
             let next = space.tabs.isEmpty ? nil : space.tabs[min(index, space.tabs.count - 1)]
             space.selectedTabID = next?.id
             next?.wake()
+            syncActivePage()
         }
         scheduleSave()
     }
@@ -243,7 +252,7 @@ public final class Browser {
 
     public func activate(_ space: Space) {
         activeSpaceID = space.id
-        selectedTab?.wake()
+        showSelectedTab()
         scheduleSave()
     }
 
@@ -260,7 +269,7 @@ public final class Browser {
         snapshot.archive = archive
         for tab in allTabs { tab.hibernate() }
         apply(snapshot)
-        selectedTab?.wake()
+        showSelectedTab()
         scheduleSave()
     }
 
@@ -408,7 +417,36 @@ public final class Browser {
             if let tab, let url = tab.url { history.record(url: url, title: tab.title) }
         }
         tab.zoomForHost = { [weak self] host in self?.zoom(forHost: host) ?? 1 }
+        tab.onRequestActivate = { [weak self, weak tab] in
+            if let self, let tab { reveal(tab) }
+        }
+        tab.onRequestClose = { [weak self, weak tab] in
+            if let self, let tab { close(tab) }
+        }
+        tab.onRequestNewTab = { [weak self] url in self?.openTab(url) }
         return tab
+    }
+
+    /// Muestra la pestaña, cambiando de espacio si hace falta.
+    public func reveal(_ tab: BrowserTab) {
+        if !isFavorite(tab), let space = spaces.first(where: { $0.allTabs.contains { $0.id == tab.id } }),
+           space.id != activeSpaceID {
+            activeSpaceID = space.id
+        }
+        select(tab)
+    }
+
+    private func showSelectedTab() {
+        selectedTab?.wake()
+        syncActivePage()
+    }
+
+    /// Avisa a cada página de si es la visible (lo necesitan las extensiones).
+    private func syncActivePage() {
+        let selectedID = selectedTab?.id
+        for tab in allTabs {
+            tab.page?.setActive(tab.id == selectedID)
+        }
     }
 
     /// Saca la pestaña de donde esté (favoritos o cualquier espacio).
