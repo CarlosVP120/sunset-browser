@@ -21,8 +21,11 @@ public struct HomeView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 40)
 
-                SunsetLogo()
-                    .fill(Sunset.raysGradient)
+                ZStack {
+                    ForEach(0..<4, id: \.self) { ray in
+                        SunsetLogo(ray: ray).fill(SunsetLogo.rayColors[ray])
+                    }
+                }
                     .frame(width: 38, height: 19)
                     .shadow(color: Color(Sunset.orange).opacity(0.6), radius: 14)
                     .padding(.bottom, 22)
