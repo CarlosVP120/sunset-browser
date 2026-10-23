@@ -177,6 +177,16 @@ private struct WebContentArea: View {
     let browser: Browser
 
     var body: some View {
+        ZStack {
+            // Páginas con vídeo en PiP (o sonando): siguen dentro de la ventana, invisibles detrás.
+            // WebKit lo necesita para "volver a la pestaña" desde el PiP y para buscar en el vídeo.
+            ParkedPagesView(pages: browser.parkedMediaPages)
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
         if let tab = browser.selectedTab, !tab.isHome {
             if let page = tab.page {
@@ -190,6 +200,29 @@ private struct WebContentArea: View {
             HomeView(browser: browser)
                 .clipShape(shape)
                 .transition(.opacity)
+        }
+    }
+}
+
+/// Mantiene en la ventana, transparentes, las páginas de pestañas con vídeo que no se están viendo.
+private struct ParkedPagesView: NSViewRepresentable {
+    let pages: [WebPage]
+
+    func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        container.alphaValue = 0
+        return container
+    }
+
+    func updateNSView(_ container: NSView, context: Context) {
+        let views = pages.map(\.view)
+        for subview in container.subviews where !views.contains(where: { $0 === subview }) {
+            subview.removeFromSuperview()
+        }
+        for view in views where view.superview !== container {
+            view.frame = container.bounds
+            view.autoresizingMask = [.width, .height]
+            container.addSubview(view)
         }
     }
 }

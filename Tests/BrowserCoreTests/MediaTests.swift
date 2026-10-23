@@ -69,4 +69,23 @@ final class MediaTests: XCTestCase {
         browser.openTab(URL(string: "https://a.com"))
         XCTAssertTrue(videoPage.pictureInPicture.isEmpty)
     }
+
+    func testVideoTabsStayParkedInTheWindowWhileInPictureInPicture() throws {
+        let (browser, _) = makeBrowser()
+        let video = browser.openTab(URL(string: "https://youtube.com/watch"))
+        let videoPage = try XCTUnwrap(video.page as? FakePage)
+        videoPage.onMediaChange?(playingVideo)
+        let music = browser.openTab(URL(string: "https://music.com"))
+        (music.page as? FakePage)?.onMediaChange?(
+            MediaState(isPlaying: true, isMuted: false, hasVideo: false, isInPictureInPicture: false)
+        )
+        browser.openTab(URL(string: "https://a.com"))
+
+        // Solo se aparca el vídeo (el audio no necesita la ventana).
+        XCTAssertEqual(browser.parkedMediaPages.map { ObjectIdentifier($0) }, [ObjectIdentifier(videoPage)])
+
+        // Al volver a la pestaña deja de estar aparcada: es la que se ve.
+        browser.select(video)
+        XCTAssertTrue(browser.parkedMediaPages.isEmpty)
+    }
 }

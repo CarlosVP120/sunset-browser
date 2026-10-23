@@ -25,6 +25,15 @@ extension Browser {
         }
     }
 
+    /// Páginas de otras pestañas con vídeo sonando o en PiP: la ventana las mantiene aparcadas.
+    public var parkedMediaPages: [WebPage] {
+        let selectedID = selectedTab?.id
+        return allTabs
+            .filter { $0.id != selectedID && $0.media?.hasVideo == true && $0.hasActiveMedia }
+            .prefix(3)
+            .compactMap(\.page)
+    }
+
     public func setPictureInPicture(_ enabled: Bool, for tab: BrowserTab) {
         tab.page?.setPictureInPicture(enabled)
     }
