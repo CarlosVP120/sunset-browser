@@ -232,6 +232,9 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
     private var isNativeDragging = false
     private var lastNativeDragEnd = Date.distantPast
     private var previewTask: Task<Void, Never>?
+    /// Como en Arc: al hacer clic en una carpeta su vista previa no vuelve a salir hasta que el
+    /// ratón sale de ella y vuelve a entrar.
+    private var previewSuppressedFolderID: UUID?
     weak var controller: SidebarListController?
 
     init(browser: Browser, space: Space, theme: SpaceTheme) {
@@ -371,6 +374,11 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
                 context.duration = 0.2
                 table.noteHeightOfRows(withIndexesChanged: changedHeights)
             }
+        }
+        // La fila bajo el ratón sigue resaltada tras el cambio (sin esperar a que se mueva).
+        if let window = table.window {
+            let point = table.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            hoveredRow = table.visibleRect.contains(point) ? table.row(at: point) : -1
         }
         reconfigureVisibleRows()
     }
@@ -539,6 +547,7 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
             browser.select(tab)
         case .folder(let folder, _):
             closePreview()
+            previewSuppressedFolderID = folder.id
             browser.toggle(folder)
         case .newTab:
             browser.openHome()
@@ -585,7 +594,9 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
             if case .folder(let folder, _) = rows[hoveredRow].kind { return folder }
             return nil
         }() : nil
-        if let folder, !folder.tabs.isEmpty, drag?.isDragging != true, renamingFolderID == nil {
+        if folder?.id != previewSuppressedFolderID { previewSuppressedFolderID = nil }
+        if let folder, !folder.tabs.isEmpty, folder.id != previewSuppressedFolderID,
+           drag?.isDragging != true, renamingFolderID == nil {
             let row = hoveredRow
             previewTask = Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(650))
