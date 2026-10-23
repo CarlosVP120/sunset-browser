@@ -24,6 +24,10 @@ let package = Package(
         .target(name: "ExtensionsFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // Librería (equivalente a la Library de Arc): descargas, media, espacios y pestañas archivadas.
         .target(name: "LibraryFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
+        // Migración desde Arc, Chrome, Safari, Brave y Edge: marcadores, historial, contraseñas y cookies.
+        .target(name: "BrowserImport", dependencies: ["BrowserEngine", "BrowserCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
+        // Bienvenida del primer arranque (como la de Arc): migrar, apps favoritas, tema y navegador predeterminado.
+        .target(name: "OnboardingFeature", dependencies: ["BrowserCore", "BrowserEngine", "BrowserImport", "BrowserUI", "HomeFeature"]),
         // Inicio: reloj, buscador y favoritos; también el modo pantalla compartida.
         .target(name: "HomeFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // La app: ventana, menús y contenido web.
@@ -32,9 +36,10 @@ let package = Package(
             dependencies: [
                 "BrowserEngine", "BrowserCore", "BrowserUI",
                 "SidebarFeature", "ToolbarFeature", "CommandBarFeature", "ExtensionsFeature", "LibraryFeature", "HomeFeature",
+                "BrowserImport", "OnboardingFeature",
             ]
         ),
-        .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore"]),
+        .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore", "BrowserImport"]),
         // Renderiza vistas a PNG para revisarlas sin abrir la app.
         .testTarget(
             name: "UISnapshotTests",

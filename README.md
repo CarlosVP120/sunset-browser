@@ -44,3 +44,17 @@ Hoy las páginas se renderizan con WebKit. Para usar Chromium (como Arc) añadir
 `CEFEngine` que implemente `WebEngine`. Chromium está escrito en C++, así que esa pieza
 necesitará un puente en Objective-C++ (`.mm`) o la interoperabilidad de Swift con C++.
 El resto de la app no cambia.
+
+## Instalador
+
+```bash
+./scripts/make-dmg.sh
+```
+
+Crea `build/Sunset-Browser.dmg` (versión optimizada, con la ventana de "Arrastra Sunset a Aplicaciones").
+
+## Migrar desde otro navegador
+
+La primera vez que se abre, Sunset muestra una bienvenida que trae espacios, marcadores, historial,
+contraseñas y sesiones abiertas desde Arc, Chrome, Safari, Brave o Edge (solo lee: el otro navegador
+no cambia). Después, desde **Archivo › Importar de otro navegador…**.

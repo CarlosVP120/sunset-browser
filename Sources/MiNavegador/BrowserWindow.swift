@@ -8,6 +8,7 @@ import CommandBarFeature
 import ExtensionsFeature
 import LibraryFeature
 import HomeFeature
+import OnboardingFeature
 
 struct BrowserWindow: View {
     let browser: Browser
@@ -28,7 +29,7 @@ struct BrowserWindow: View {
             HStack(spacing: 0) {
                 if browser.showsSidebar && browser.showsLibrary {
                     // La Librería ocupa el lugar de la barra lateral, algo más ancha.
-                    LibraryView(browser: browser, downloads: engine.downloads)
+                    LibraryView(browser: browser, downloads: engine.downloads, passwords: engine.passwords)
                         .frame(width: max(browser.sidebarWidth, 400))
                         .transition(.move(edge: .leading).combined(with: .opacity))
                         .zIndex(1)
@@ -92,6 +93,13 @@ struct BrowserWindow: View {
                 .padding(.bottom, 28)
                 .zIndex(20)
 
+            if let request = browser.welcome {
+                OnboardingHost(browser: browser, passwords: engine.passwords, request: request)
+                    .id(request)
+                    .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                    .zIndex(30)
+            }
+
             if let mode = browser.commandBar {
                 CommandBarView(browser: browser, mode: mode)
                     .id(mode)
@@ -114,6 +122,7 @@ struct BrowserWindow: View {
         .animation(Theme.spring, value: browser.showsToolbar)
         .animation(Theme.spring, value: browser.showsLibrary)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
+        .animation(.easeInOut(duration: 0.45), value: browser.welcome)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
         .sheet(isPresented: Binding(
             get: { browser.showsSpaceManager },
@@ -274,5 +283,23 @@ private struct ContentFrameKey: PreferenceKey {
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         let next = nextValue()
         if next != .zero { value = next }
+    }
+}
+
+/// La bienvenida a pantalla completa sobre la ventana. Su estado vive aquí mientras se muestra.
+private struct OnboardingHost: View {
+    @State private var model: Onboarding
+
+    init(browser: Browser, passwords: PasswordVault, request: WelcomeRequest) {
+        _model = State(initialValue: Onboarding(
+            browser: browser, passwords: passwords,
+            startAt: request == .importOnly ? .importSource : .welcome,
+            importOnly: request == .importOnly,
+            onFinish: { browser.welcome = nil }
+        ))
+    }
+
+    var body: some View {
+        OnboardingView(model: model)
     }
 }

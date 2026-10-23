@@ -47,6 +47,8 @@ final class FakeEngine: WebEngine {
     func removeProfileData(_ profile: UUID) {}
     private(set) var clearedData: [(BrowsingData, String?)] = []
     func clearBrowsingData(_ kinds: BrowsingData, host: String?) async { clearedData.append((kinds, host)) }
+    var importedCookies: [HTTPCookie] = []
+    func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async { importedCookies += cookies }
 
     func makePage(profile: UUID?) -> WebPage {
         profiles.append(profile)

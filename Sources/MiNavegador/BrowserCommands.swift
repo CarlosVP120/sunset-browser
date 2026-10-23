@@ -86,9 +86,11 @@ struct BrowserCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Atajos de teclado") { browser.showsShortcuts = true }
                 .keyboardShortcut("/", modifiers: .command)
+            Button("Mostrar la bienvenida") { browser.welcome = .full }
         }
 
         CommandGroup(after: .importExport) {
+            Button("Importar de otro navegador…") { browser.welcome = .importOnly }
             Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
         }
 

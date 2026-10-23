@@ -372,3 +372,15 @@ private struct SeededGenerator: RandomNumberGenerator {
         return z ^ (z >> 31)
     }
 }
+
+/// El cielo de Sunset según la hora (sin depender de un tema), con grano. Lo usa la bienvenida.
+public struct SunsetSky: View {
+    public init() {}
+
+    public var body: some View {
+        ZStack {
+            SkyLayerView()
+            GrainOverlay(intensity: 0.3)
+        }
+    }
+}

@@ -33,6 +33,10 @@ public final class Browser {
     public var spaceEditor: SpaceEditorRequest?
     /// Ventana para ordenar, renombrar y borrar espacios.
     public var showsSpaceManager = false
+    /// La bienvenida (o solo el importador), si hay que mostrarla.
+    public var welcome: WelcomeRequest?
+    /// Es la primera vez que se abre (no había barra lateral guardada).
+    public private(set) var isFirstLaunch = false
     /// Barra de búsqueda en la página (⌘F).
     public var isFindBarVisible = false
     /// Se incrementa para pedir a la barra de búsqueda el siguiente (+1) o el anterior (-1).
@@ -81,7 +85,9 @@ public final class Browser {
         autoPictureInPicture = defaults.object(forKey: "autoPictureInPicture") as? Bool ?? true
         activeSpaceID = UUID()
 
-        if let snapshot = store?.load() ?? (importFromArc ? try? ArcImporter.load() : nil) {
+        let saved = store?.load()
+        isFirstLaunch = store != nil && saved == nil
+        if let snapshot = saved ?? (importFromArc ? try? ArcImporter.load() : nil) {
             apply(snapshot)
         }
         if spaces.isEmpty {
@@ -292,12 +298,64 @@ public final class Browser {
 
     /// Sustituye la barra lateral por la de Arc (mantiene el archivo y el historial).
     public func reimportFromArc() throws {
-        var snapshot = try ArcImporter.load()
+        replaceSidebar(with: try ArcImporter.load())
+    }
+
+    /// Sustituye la barra lateral (espacios, favoritos y pestañas) por otra; se conservan el
+    /// archivo y el historial.
+    public func replaceSidebar(with imported: SidebarSnapshot) {
+        var snapshot = imported
         snapshot.archive = archive
         for tab in allTabs { tab.hibernate() }
         apply(snapshot)
         showSelectedTab()
         scheduleSave()
+    }
+
+    /// Trae la barra lateral de otro navegador. Si Sunset aún está vacío, la sustituye; si ya
+    /// tienes pestañas, añade sus espacios y favoritos a los tuyos.
+    public func mergeSidebar(_ imported: SidebarSnapshot) {
+        guard !favorites.isEmpty || !allTabs.isEmpty else {
+            replaceSidebar(with: imported)
+            return
+        }
+        var merged = snapshot()
+        let knownHosts = Set(favorites.compactMap { $0.url?.host() })
+        merged.favorites += imported.favorites.filter { !knownHosts.contains($0.url?.host() ?? "") }
+        let knownSpaces = Set(merged.spaces.map(\.id))
+        merged.spaces += imported.spaces.filter { !knownSpaces.contains($0.id) }
+        replaceSidebar(with: merged)
+    }
+
+    /// Añade un espacio con marcadores traídos de otro navegador: los enlaces sueltos quedan
+    /// fijados y cada carpeta de marcadores, como carpeta (plegada).
+    @discardableResult
+    public func addImportedSpace(named name: String, icon: String, color: SpaceColor,
+                                 pinned: [(title: String, url: URL)],
+                                 folders: [(name: String, links: [(title: String, url: URL)])]) -> Space {
+        let space = Space(name: name, icon: icon, theme: .dark(from: color))
+        space.pinned = pinned.map { .tab(makeTab(url: $0.url, title: $0.title)) }
+            + folders.map { folder in
+                .folder(Folder(name: folder.name, isExpanded: false,
+                               tabs: folder.links.map { makeTab(url: $0.url, title: $0.title) }))
+            }
+        spaces.append(space)
+        activate(space)
+        return space
+    }
+
+    /// Añade sitios a favoritos (los que no estén ya).
+    public func addFavorites(_ links: [(title: String, url: URL)]) {
+        let existing = Set(favorites.compactMap { $0.url?.host() })
+        for link in links where !existing.contains(link.url.host() ?? "") {
+            favorites.append(makeTab(url: link.url, title: link.title))
+        }
+        scheduleSave()
+    }
+
+    /// Añade cookies traídas de otro navegador (las sesiones siguen iniciadas en Sunset).
+    public func importCookies(_ cookies: [HTTPCookie]) async {
+        await engine.importCookies(cookies, profile: nil)
     }
 
     // MARK: - Arrastrar y soltar

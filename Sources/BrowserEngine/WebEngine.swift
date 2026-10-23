@@ -96,6 +96,8 @@ public protocol WebEngine: AnyObject {
     func removeProfileData(_ profile: UUID)
     /// Borra datos de navegación de todos los perfiles; con `host`, solo los de ese sitio.
     func clearBrowsingData(_ kinds: BrowsingData, host: String?) async
+    /// Añade cookies (sesiones traídas de otro navegador) al almacén de un perfil.
+    func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async
 }
 
 /// Qué datos de navegación borrar.

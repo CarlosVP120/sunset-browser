@@ -11,8 +11,12 @@ public final class WebKitEngine: WebEngine {
     public let downloads = DownloadManager()
     /// Reparte los mensajes de medios de las páginas a cada pestaña.
     private let mediaRouter = MediaMessageRouter()
+    /// Contraseñas guardadas (importadas de otros navegadores) y su autorrelleno en las páginas.
+    public let passwords = PasswordVault()
+    private let autofill: PasswordAutofill
 
     public init() {
+        autofill = PasswordAutofill(vault: passwords)
         configuration = WKWebViewConfiguration()
         // Un solo almacén para todas las pestañas; WebKit comparte los procesos entre ellas.
         configuration.websiteDataStore = .default()
@@ -25,6 +29,7 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
         configuration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
+        autofill.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
             let host = WebExtensionsHost()
@@ -69,9 +74,17 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
+            autofill.install(in: profileConfiguration.userContentController)
         }
         profileConfigurations[profile] = profileConfiguration
         return profileConfiguration
+    }
+
+    public func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async {
+        let store = configuration(for: profile).websiteDataStore.httpCookieStore
+        for cookie in cookies {
+            await store.setCookie(cookie)
+        }
     }
 
     public func clearBrowsingData(_ kinds: BrowsingData, host: String?) async {

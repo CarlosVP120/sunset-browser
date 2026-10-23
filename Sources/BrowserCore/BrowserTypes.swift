@@ -1,5 +1,11 @@
 import Foundation
 
+/// Pedir la bienvenida: completa (primera vez) o solo el paso de importar otro navegador.
+public enum WelcomeRequest: Equatable, Sendable {
+    case full
+    case importOnly
+}
+
 /// Cómo se abrió el Command Bar.
 public enum CommandBarMode: Equatable, Sendable {
     /// ⌘T: lo que elijas se abre en una pestaña nueva.
@@ -53,7 +59,7 @@ public struct Toast: Equatable, Sendable {
 
 /// Secciones de la Librería.
 public enum LibrarySection: String, CaseIterable, Sendable {
-    case media, downloads, spaces, archive
+    case media, downloads, spaces, archive, passwords
 
     public var title: String {
         switch self {
@@ -61,6 +67,7 @@ public enum LibrarySection: String, CaseIterable, Sendable {
         case .downloads: "Descargas"
         case .spaces: "Espacios"
         case .archive: "Pestañas archivadas"
+        case .passwords: "Contraseñas"
         }
     }
 
@@ -70,6 +77,7 @@ public enum LibrarySection: String, CaseIterable, Sendable {
         case .downloads: "arrow.down.circle"
         case .spaces: "square.stack"
         case .archive: "archivebox"
+        case .passwords: "key"
         }
     }
 }

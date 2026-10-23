@@ -2,6 +2,7 @@ import SwiftUI
 import BrowserCore
 import BrowserEngine
 import BrowserUI
+import OnboardingFeature
 
 @main
 struct MiNavegadorApp: App {
@@ -29,8 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         engine = WebKitEngine()
-        browser = Browser(engine: engine)
+        // La primera vez no se importa nada por tu cuenta: la bienvenida te pregunta de dónde traer tus cosas.
+        browser = Browser(engine: engine, importFromArc: false)
         super.init()
+
+        if Onboarding.shouldShow(isFirstLaunch: browser.isFirstLaunch) {
+            browser.welcome = .full
+        }
 
         // Pausa las animaciones mientras haya un menú abierto (si no, el menú se congela).
         MenuTracking.start()

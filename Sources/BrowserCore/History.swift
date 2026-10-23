@@ -6,6 +6,13 @@ public struct HistoryEntry: Codable, Equatable, Sendable {
     public var title: String
     public var visitCount: Int
     public var lastVisit: Date
+
+    public init(url: URL, title: String, visitCount: Int, lastVisit: Date) {
+        self.url = url
+        self.title = title
+        self.visitCount = visitCount
+        self.lastVisit = lastVisit
+    }
 }
 
 /// Historial de navegación: alimenta las sugerencias del Command Bar.
@@ -47,6 +54,31 @@ public final class History {
             }
         }
         scheduleSave()
+    }
+
+    /// Mezcla historial de otro navegador: suma visitas y se queda con la fecha más reciente.
+    /// Devuelve cuántas direcciones nuevas se añadieron.
+    @discardableResult
+    public func merge(_ imported: [HistoryEntry]) -> Int {
+        var indexByURL = Dictionary(entries.enumerated().map { ($1.url, $0) }, uniquingKeysWith: { first, _ in first })
+        var added = 0
+        for entry in imported {
+            if let index = indexByURL[entry.url] {
+                entries[index].visitCount += entry.visitCount
+                if entry.lastVisit > entries[index].lastVisit { entries[index].lastVisit = entry.lastVisit }
+                if entries[index].title.isEmpty { entries[index].title = entry.title }
+            } else {
+                indexByURL[entry.url] = entries.count
+                entries.append(entry)
+                added += 1
+            }
+        }
+        if entries.count > Self.limit {
+            entries.sort { $0.lastVisit > $1.lastVisit }
+            entries.removeLast(entries.count - Self.limit)
+        }
+        scheduleSave()
+        return added
     }
 
     public func clear() {

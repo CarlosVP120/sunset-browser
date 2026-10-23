@@ -1,3 +1,4 @@
+import LocalAuthentication
 import SwiftUI
 import UniformTypeIdentifiers
 import BrowserCore
@@ -9,11 +10,13 @@ import BrowserUI
 public struct LibraryView: View {
     let browser: Browser
     let downloads: DownloadManager
+    let passwords: PasswordVault?
     @Environment(\.spaceTheme) private var theme
 
-    public init(browser: Browser, downloads: DownloadManager) {
+    public init(browser: Browser, downloads: DownloadManager, passwords: PasswordVault? = nil) {
         self.browser = browser
         self.downloads = downloads
+        self.passwords = passwords
     }
 
     public var body: some View {
@@ -27,6 +30,7 @@ public struct LibraryView: View {
                 case .media: MediaSection(downloads: downloads)
                 case .spaces: SpacesSection(browser: browser)
                 case .archive: ArchiveSection(browser: browser)
+                case .passwords: PasswordsSection(browser: browser, vault: passwords)
                 }
             }
             .id(browser.librarySection)
@@ -546,5 +550,113 @@ private struct EmptyLibraryMessage: View {
         .foregroundStyle(Color(theme.subtitle).opacity(1.5))
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Contraseñas
+
+/// Contraseñas guardadas (las importadas de otros navegadores). Para verlas hay que
+/// identificarse con Touch ID o la contraseña del Mac, como en Safari.
+private struct PasswordsSection: View {
+    let browser: Browser
+    let vault: PasswordVault?
+    @State private var isUnlocked = false
+    @State private var query = ""
+    @State private var copiedID: Credential.ID?
+    @Environment(\.spaceTheme) private var theme
+
+    private var visible: [Credential] {
+        let all = (vault?.credentials ?? []).sorted { $0.host < $1.host }
+        guard !query.isEmpty else { return all }
+        let needle = query.searchNormalized
+        return all.filter { $0.host.searchNormalized.contains(needle) || $0.username.searchNormalized.contains(needle) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !isUnlocked {
+                VStack(spacing: 14) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(Color(theme.subtitle).opacity(1.4))
+                    Text("Tus contraseñas están protegidas.")
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(Color(theme.title))
+                    Button("Desbloquear") { Task { await unlock() } }
+                        .controlSize(.large)
+                    Button("Importar de otro navegador…") { browser.welcome = .importOnly }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 12.5))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                SearchHeader(placeholder: "Buscar contraseñas…", text: $query) {
+                    Button("Importar…") { browser.welcome = .importOnly }
+                        .buttonStyle(.borderless)
+                }
+                if visible.isEmpty {
+                    EmptyLibraryMessage(symbol: "key",
+                                        text: vault?.credentials.isEmpty ?? true
+                                            ? "Importa tus contraseñas de Chrome, Arc o Safari y aparecerán aquí."
+                                            : "Sin resultados.")
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 2) {
+                            ForEach(visible) { credential in
+                                row(credential)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, 12)
+                    }
+                }
+            }
+        }
+        .onDisappear { isUnlocked = false }
+    }
+
+    private func row(_ credential: Credential) -> some View {
+        HStack(spacing: 10) {
+            FaviconView(pageURL: credential.url, size: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(credential.host)
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Color(theme.title))
+                    .lineLimit(1)
+                Text(credential.username.isEmpty ? "Sin usuario" : credential.username)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(theme.subtitle).opacity(1.5))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(credential.password, forType: .string)
+                withAnimation(Theme.pressSpring) { copiedID = credential.id }
+            } label: {
+                Image(systemName: copiedID == credential.id ? "checkmark" : "doc.on.doc")
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(ChromeButtonStyle(size: 26))
+            .tooltip("Copiar contraseña")
+            Button {
+                try? vault?.remove(credential)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(ChromeButtonStyle(size: 26))
+            .tooltip("Eliminar")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+    }
+
+    private func unlock() async {
+        let context = LAContext()
+        let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication,
+                                                    localizedReason: "ver tus contraseñas guardadas")) ?? false
+        guard ok else { return }
+        try? vault?.load()
+        withAnimation(Theme.spring) { isUnlocked = true }
     }
 }

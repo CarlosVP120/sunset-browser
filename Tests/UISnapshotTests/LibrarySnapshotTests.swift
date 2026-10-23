@@ -11,6 +11,7 @@ final class LibrarySnapshotTests: XCTestCase {
         func makePage(profile: UUID?) -> WebPage { fatalError("No se usan páginas en las capturas") }
         func removeProfileData(_ profile: UUID) {}
         func clearBrowsingData(_ kinds: BrowsingData, host: String?) async {}
+        func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async {}
     }
 
     func testLibraryDownloads() throws {
