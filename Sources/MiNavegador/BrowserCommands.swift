@@ -8,30 +8,34 @@ struct BrowserCommands: Commands {
     let browser: Browser
     let engine: WebKitEngine
 
+    // Con Xcode 26 cada bloque admite como mucho 10 elementos: por eso los `Group`.
     var body: some Commands {
-        CommandGroup(replacing: .newItem) {
-            Button("Nueva pestaña") { browser.newTab() }
-                .keyboardShortcut("t")
-            Button("Nueva pestaña") { browser.newTab() }
-                .keyboardShortcut("n")
-            Button("Abrir ubicación") { browser.editCurrentTab() }
-                .keyboardShortcut("l")
-            Button("Inicio") { withAnimation { browser.openHome() } }
-                .keyboardShortcut("h", modifiers: [.command, .shift])
-            Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
-                .keyboardShortcut("t", modifiers: [.command, .shift])
-                .disabled(browser.archive.isEmpty)
-            Divider()
-            Button("Nueva carpeta") { _ = browser.newFolder() }
-                .keyboardShortcut("n", modifiers: [.command, .option])
-            Button("Nuevo espacio") { browser.addSpace(name: "Espacio \(browser.spaces.count + 1)") }
-            Divider()
-            Button("Imprimir…") { browser.selectedTab?.page?.printPage() }
-                .keyboardShortcut("p")
-                .disabled(browser.selectedTab?.page == nil)
-            Divider()
-            Button("Cerrar pestaña") { browser.closeSelectedTab() }
-                .keyboardShortcut("w")
+        Group {
+            CommandGroup(replacing: .newItem) {
+                Button("Nueva pestaña") { browser.newTab() }
+                    .keyboardShortcut("t")
+                Button("Nueva pestaña") { browser.newTab() }
+                    .keyboardShortcut("n")
+                Button("Abrir ubicación") { browser.editCurrentTab() }
+                    .keyboardShortcut("l")
+                Button("Inicio") { withAnimation { browser.openHome() } }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+                    .disabled(browser.archive.isEmpty)
+                Group {
+                    Divider()
+                    Button("Nueva carpeta") { _ = browser.newFolder() }
+                        .keyboardShortcut("n", modifiers: [.command, .option])
+                    Button("Nuevo espacio") { browser.addSpace(name: "Espacio \(browser.spaces.count + 1)") }
+                    Divider()
+                    Button("Imprimir…") { browser.selectedTab?.page?.printPage() }
+                        .keyboardShortcut("p")
+                        .disabled(browser.selectedTab?.page == nil)
+                    Divider()
+                    Button("Cerrar pestaña") { browser.closeSelectedTab() }
+                        .keyboardShortcut("w")
+            }
         }
 
         CommandGroup(replacing: .saveItem) {}
@@ -94,25 +98,27 @@ struct BrowserCommands: Commands {
             Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
         }
 
-        CommandMenu("Desarrollo") {
-            Button("Modo desarrollador en este sitio") { browser.perform(.toggleDeveloperMode) }
-                // Como en Arc: Control (no Comando) + D, en cualquier sitio.
-                .keyboardShortcut("d", modifiers: .control)
-                .disabled(browser.selectedTab?.url == nil || browser.selectedTab?.isHome == true)
-            Divider()
-            Button("Consola") { browser.perform(.toggleConsole) }
-                .keyboardShortcut("j", modifiers: [.command, .option])
-                .disabled(browser.selectedTab?.isDeveloperMode != true)
-            Button("Red") { browser.perform(.toggleNetwork) }
-                .keyboardShortcut("e", modifiers: [.command, .option])
-                .disabled(browser.selectedTab?.isDeveloperMode != true)
-            Button("Inspeccionar elemento") { browser.perform(.inspectElement) }
-                .keyboardShortcut("c", modifiers: [.command, .option])
-            Button("Inspector web") { browser.perform(.openWebInspector) }
-                .keyboardShortcut("i", modifiers: [.command, .option])
-            Button("Vista móvil") { browser.perform(.toggleResponsive) }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
-                .disabled(browser.selectedTab?.isDeveloperMode != true)
+        }
+        Group {
+            CommandMenu("Desarrollo") {
+                Button("Modo desarrollador en este sitio") { browser.perform(.toggleDeveloperMode) }
+                    // Como en Arc: Control (no Comando) + D, en cualquier sitio.
+                    .keyboardShortcut("d", modifiers: .control)
+                    .disabled(browser.selectedTab?.url == nil || browser.selectedTab?.isHome == true)
+                Divider()
+                Button("Consola") { browser.perform(.toggleConsole) }
+                    .keyboardShortcut("j", modifiers: [.command, .option])
+                    .disabled(browser.selectedTab?.isDeveloperMode != true)
+                Button("Red") { browser.perform(.toggleNetwork) }
+                    .keyboardShortcut("e", modifiers: [.command, .option])
+                    .disabled(browser.selectedTab?.isDeveloperMode != true)
+                Button("Inspeccionar elemento") { browser.perform(.inspectElement) }
+                    .keyboardShortcut("c", modifiers: [.command, .option])
+                Button("Inspector web") { browser.perform(.openWebInspector) }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+                Button("Vista móvil") { browser.perform(.toggleResponsive) }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
+                    .disabled(browser.selectedTab?.isDeveloperMode != true)
         }
 
         CommandMenu("Navegación") {
@@ -133,15 +139,17 @@ struct BrowserCommands: Commands {
                 get: { browser.autoPictureInPicture },
                 set: { browser.autoPictureInPicture = $0 }
             ))
-            Divider()
-            Button("Detener") { browser.selectedTab?.stopLoading() }
-                .keyboardShortcut(".")
-                .disabled(browser.selectedTab?.isLoading != true)
-            Divider()
-            Button("Historial") { browser.newTab() }
-                .keyboardShortcut("y")
-            Button("Buscar pestañas…") { browser.newTab() }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
+            Group {
+                Divider()
+                Button("Detener") { browser.selectedTab?.stopLoading() }
+                    .keyboardShortcut(".")
+                    .disabled(browser.selectedTab?.isLoading != true)
+                Divider()
+                Button("Historial") { browser.newTab() }
+                    .keyboardShortcut("y")
+                Button("Buscar pestañas…") { browser.newTab() }
+                    .keyboardShortcut("a", modifiers: [.command, .shift])
+            }
         }
 
         CommandMenu("Pestañas") {
@@ -160,15 +168,17 @@ struct BrowserCommands: Commands {
                 Button("Ir a la pestaña \(number)") { browser.selectTab(at: number - 1) }
                     .keyboardShortcut(KeyEquivalent(Character("\(number)")))
             }
-            Button("Ir a la última pestaña") { browser.selectLastTab() }
-                .keyboardShortcut("9")
-            Divider()
-            Button("Fijar / desfijar pestaña") {
-                if let tab = browser.selectedTab { browser.togglePin(tab) }
+            Group {
+                Button("Ir a la última pestaña") { browser.selectLastTab() }
+                    .keyboardShortcut("9")
+                Divider()
+                Button("Fijar / desfijar pestaña") {
+                    if let tab = browser.selectedTab { browser.togglePin(tab) }
             }
             .keyboardShortcut("d")
             Button("Añadir a favoritos") {
                 if let tab = browser.selectedTab { browser.addToFavorites(tab) }
+            }
             }
         }
 
@@ -208,6 +218,7 @@ struct BrowserCommands: Commands {
             } else {
                 Text("Las extensiones necesitan macOS 15.4 o posterior")
             }
+        }
         }
     }
 }
