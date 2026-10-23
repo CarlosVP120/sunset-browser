@@ -31,6 +31,7 @@
   <div class="hint">Haz scroll arriba y abajo unos segundos (trackpad o rueda). Compara los números en
     Arc y en MiNavegador, en la misma pantalla.</div>
   <button id="reset">Reiniciar medición</button>
+  <button id="auto">Scroll automático (6 s)</button>
 </div>
 <div id="content"></div>
 <script>
@@ -82,6 +83,21 @@
       document.getElementById('stall').textContent = Math.round(Math.max(...frames)) + ' ms';
     }
   }, 250);
+
+  // Scroll automático a velocidad constante: misma prueba en cualquier navegador.
+  document.getElementById('auto').onclick = () => {
+    document.getElementById('reset').click();
+    window.scrollTo(0, 0);
+    const start = performance.now();
+    const step = now => {
+      const elapsed = now - start;
+      if (elapsed > 6000) { document.title = 'Listo'; return; }
+      window.scrollBy(0, 9);
+      requestAnimationFrame(step);
+    };
+    document.title = 'Midiendo…';
+    requestAnimationFrame(step);
+  };
 
   document.getElementById('reset').onclick = () => {
     frames = []; totalTime = 0;
