@@ -11,7 +11,8 @@ STAGING="$WORK/staging"
 trap 'hdiutil detach "/Volumes/$NAME" -quiet 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
 # 1. La app en versión optimizada (SKIP_BUILD=1 reutiliza la ya empaquetada).
-[[ "${SKIP_BUILD:-0}" == 1 ]] || ./scripts/bundle.sh release
+# Universal (Apple Silicon e Intel): el DMG es para compartir.
+[[ "${SKIP_BUILD:-0}" == 1 ]] || UNIVERSAL=1 ./scripts/bundle.sh release
 
 # 2. Contenido del disco: la app, un acceso a Aplicaciones y el fondo (oculto).
 mkdir -p "$STAGING/.background"

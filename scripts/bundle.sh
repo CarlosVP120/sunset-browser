@@ -5,8 +5,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 CONFIG="${1:-debug}"
 
-swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/MiNavegador"
+# UNIVERSAL=1: Apple Silicon e Intel en el mismo binario (para compartir la app).
+ARCH_FLAGS=()
+[[ "${UNIVERSAL:-0}" == 1 ]] && ARCH_FLAGS=(--arch arm64 --arch x86_64)
+swift build -c "$CONFIG" "${ARCH_FLAGS[@]}"
+BIN="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)/MiNavegador"
 
 APP="build/Sunset Browser.app"
 rm -rf "$APP" build/MiNavegador.app
