@@ -3,52 +3,106 @@ import QuartzCore
 import BrowserCore
 import BrowserUI
 
-/// Fondo de Inicio: el cielo justo después de la puesta de sol. Arriba es de noche, con estrellas
-/// que titilan y alguna estrella fugaz de vez en cuando; abajo queda el resplandor del atardecer
-/// (con los colores de Sunset y del espacio). Encima, el grano del tema.
+/// Fondo de Inicio: el cielo de ahora mismo. Cambia con la hora del día (amanecer, día, hora
+/// dorada, atardecer, anochecer y noche), así el navegador acompaña lo que estás viviendo. De
+/// noche hay estrellas que titilan y alguna estrella fugaz; encima, el grano del tema.
 ///
 /// Todo se anima con Core Animation: lo mueve el compositor del sistema y la app no trabaja en
-/// cada fotograma (con SwiftUI costaba ~40 % de CPU en reposo).
+/// cada fotograma (con SwiftUI costaba ~40 % de CPU en reposo). El cielo se actualiza una vez
+/// por minuto.
 struct HomeBackground: View {
     let theme: SpaceTheme
 
     var body: some View {
         ZStack {
-            SkyLayerView(palette: SkyPalette(theme: theme))
+            SkyLayerView()
             // Un poco de grano siempre: es lo que hace que el degradado se sienta "material".
             GrainOverlay(intensity: max(theme.grain, 0.22))
         }
     }
 }
 
-/// Colores del cielo, derivados del tema del espacio para que cada espacio tenga su noche.
+/// Cómo se ve el cielo en un momento del día.
 struct SkyPalette: Equatable {
     var zenith: SpaceColor
     var horizon: SpaceColor
+    /// Resplandor ancho sobre el horizonte y, dentro, el del sol (0 = sin resplandor).
     var glow: SpaceColor
+    var glowStrength: Double
     var sun: SpaceColor
+    var sunStrength: Double
+    /// Visibilidad de las estrellas (0–1). Las fugaces solo salen con el cielo bien oscuro.
+    var stars: Double
 
-    init(theme: SpaceTheme) {
-        let seed = (theme.seeds.first ?? theme.accent).hsb
-        // Si el tema casi no tiene color, el cielo usa el índigo de Sunset.
-        let hue = seed.saturation < 0.12 ? Sunset.indigo.hsb.hue : seed.hue
-        zenith = SpaceColor(hue: hue, saturation: 0.55, brightness: 0.07)
-        horizon = SpaceColor(hue: hue, saturation: 0.6, brightness: 0.2)
-        glow = SpaceColor(hue: hue, saturation: 0.65, brightness: 0.85).mixed(with: Sunset.rose, by: 0.6)
-        sun = Sunset.orange
+    private init(_ zenith: SpaceColor, _ horizon: SpaceColor, glow: SpaceColor, _ glowStrength: Double,
+                 sun: SpaceColor, _ sunStrength: Double, stars: Double) {
+        self.zenith = zenith
+        self.horizon = horizon
+        self.glow = glow
+        self.glowStrength = glowStrength
+        self.sun = sun
+        self.sunStrength = sunStrength
+        self.stars = stars
+    }
+
+    private static func rgb(_ red: Double, _ green: Double, _ blue: Double) -> SpaceColor {
+        SpaceColor(red: red, green: green, blue: blue)
+    }
+
+    private static let night = SkyPalette(rgb(0.03, 0.03, 0.09), rgb(0.08, 0.08, 0.20),
+                                          glow: rgb(0.25, 0.18, 0.45), 0.25, sun: Sunset.violet, 0, stars: 1)
+    private static let dawn = SkyPalette(rgb(0.10, 0.12, 0.30), rgb(0.55, 0.36, 0.52),
+                                         glow: rgb(0.95, 0.50, 0.55), 0.6, sun: Sunset.gold, 0.4, stars: 0.4)
+    private static let sunrise = SkyPalette(rgb(0.25, 0.40, 0.70), rgb(0.98, 0.72, 0.60),
+                                            glow: rgb(1.0, 0.65, 0.45), 0.7, sun: Sunset.gold, 0.7, stars: 0)
+    private static let day = SkyPalette(rgb(0.16, 0.40, 0.78), rgb(0.58, 0.77, 0.95),
+                                        glow: rgb(1, 1, 1), 0.22, sun: rgb(1.0, 0.95, 0.85), 0.25, stars: 0)
+    private static let golden = SkyPalette(rgb(0.22, 0.35, 0.65), rgb(1.0, 0.75, 0.50),
+                                           glow: rgb(1.0, 0.60, 0.35), 0.6, sun: Sunset.gold, 0.6, stars: 0)
+    private static let sunset = SkyPalette(rgb(0.18, 0.12, 0.38), rgb(0.80, 0.35, 0.40),
+                                           glow: Sunset.rose, 0.8, sun: Sunset.orange, 0.75, stars: 0.2)
+    private static let dusk = SkyPalette(rgb(0.07, 0.06, 0.18), rgb(0.30, 0.16, 0.35),
+                                         glow: rgb(0.55, 0.25, 0.50), 0.45, sun: Sunset.orange, 0.15, stars: 0.7)
+
+    /// Momentos clave del día (hora local); entre uno y otro el cielo se funde poco a poco.
+    private static let keyframes: [(hour: Double, sky: SkyPalette)] = [
+        (0, night), (4.75, night), (5.75, dawn), (6.75, sunrise), (8, day), (16.25, day),
+        (17.5, golden), (18.75, sunset), (19.75, dusk), (21, night), (24, night),
+    ]
+
+    /// El cielo de una hora del día (0–24).
+    static func at(hour: Double) -> SkyPalette {
+        let hour = min(max(hour, 0), 24)
+        guard let next = keyframes.firstIndex(where: { $0.hour >= hour }), next > 0 else { return night }
+        let (from, to) = (keyframes[next - 1], keyframes[next])
+        let progress = (hour - from.hour) / (to.hour - from.hour)
+        return from.sky.mixed(with: to.sky, by: progress)
+    }
+
+    /// El cielo de ahora. `SUNSET_HOUR` (variable de entorno) fija la hora para probar cada fase.
+    static func now(_ date: Date = Date()) -> SkyPalette {
+        if let forced = ProcessInfo.processInfo.environment["SUNSET_HOUR"].flatMap(Double.init) {
+            return at(hour: forced)
+        }
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return at(hour: Double(parts.hour ?? 0) + Double(parts.minute ?? 0) / 60)
+    }
+
+    private func mixed(with other: SkyPalette, by amount: Double) -> SkyPalette {
+        func mix(_ a: Double, _ b: Double) -> Double { a + (b - a) * amount }
+        return SkyPalette(zenith.mixed(with: other.zenith, by: amount), horizon.mixed(with: other.horizon, by: amount),
+                          glow: glow.mixed(with: other.glow, by: amount), mix(glowStrength, other.glowStrength),
+                          sun: sun.mixed(with: other.sun, by: amount), mix(sunStrength, other.sunStrength),
+                          stars: mix(stars, other.stars))
     }
 }
 
 private struct SkyLayerView: NSViewRepresentable {
-    let palette: SkyPalette
-
     func makeNSView(context: Context) -> SkyView {
         SkyView()
     }
 
-    func updateNSView(_ view: SkyView, context: Context) {
-        view.apply(palette)
-    }
+    func updateNSView(_ view: SkyView, context: Context) {}
 }
 
 final class SkyView: NSView {
@@ -60,6 +114,7 @@ final class SkyView: NSView {
     private let shootingStars = CALayer()
     private var palette: SkyPalette?
     private var spawnTimer: Timer?
+    private var clockTimer: Timer?
 
     /// Las estrellas se generan una vez para una superficie grande y la vista las recorta: así
     /// no se recolocan (ni parpadean) al cambiar el tamaño de la ventana o de la barra lateral.
@@ -108,14 +163,19 @@ final class SkyView: NSView {
         let animated = self.palette != nil
         self.palette = palette
         CATransaction.begin()
-        CATransaction.setAnimationDuration(animated ? 0.6 : 0)
+        // El cielo cambia muy poco cada minuto: un fundido largo hace que no se note el salto.
+        CATransaction.setAnimationDuration(animated ? 3 : 0)
         CATransaction.setDisableActions(!animated)
-        sky.colors = [palette.zenith, palette.zenith, palette.horizon].map(\.cgColor)
-        sky.locations = [0, 0.45, 1]
-        glow.colors = [palette.glow.with(alpha: 0.8), palette.glow.with(alpha: 0.3), palette.glow.with(alpha: 0)]
-        glow.locations = [0, 0.45, 1]
-        sun.colors = [Sunset.gold.with(alpha: 0.85), palette.sun.with(alpha: 0.5), palette.sun.with(alpha: 0)]
-        sun.locations = [0, 0.4, 1]
+        sky.colors = [palette.zenith, palette.zenith.mixed(with: palette.horizon, by: 0.3), palette.horizon].map(\.cgColor)
+        sky.locations = [0, 0.5, 1]
+        let glow = palette.glowStrength, sun = palette.sunStrength
+        self.glow.colors = [palette.glow.with(alpha: glow), palette.glow.with(alpha: glow * 0.38), palette.glow.with(alpha: 0)]
+        self.glow.locations = [0, 0.45, 1]
+        self.sun.colors = [Sunset.gold.mixed(with: palette.sun, by: 0.5).with(alpha: sun),
+                           palette.sun.with(alpha: sun * 0.6), palette.sun.with(alpha: 0)]
+        self.sun.locations = [0, 0.4, 1]
+        stars.opacity = Float(palette.stars)
+        twinkles.opacity = Float(palette.stars)
         CATransaction.commit()
     }
 
@@ -143,7 +203,14 @@ final class SkyView: NSView {
         super.viewDidMoveToWindow()
         spawnTimer?.invalidate()
         spawnTimer = nil
-        if window != nil, !Self.reduceMotion { scheduleShootingStar() }
+        clockTimer?.invalidate()
+        clockTimer = nil
+        guard window != nil else { return }
+        apply(.now())
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.apply(.now()) }
+        }
+        if !Self.reduceMotion { scheduleShootingStar() }
     }
 
     // MARK: Estrellas
@@ -218,7 +285,9 @@ final class SkyView: NSView {
             MainActor.assumeIsolated {
                 guard let self, self.window != nil else { return }
                 // Solo si la ventana se ve: en segundo plano no gasta nada.
-                if self.window?.occlusionState.contains(.visible) == true { self.launchShootingStar() }
+                if self.window?.occlusionState.contains(.visible) == true, (self.palette?.stars ?? 0) > 0.6 {
+                    self.launchShootingStar()
+                }
                 self.scheduleShootingStar()
             }
         }

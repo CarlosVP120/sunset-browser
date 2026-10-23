@@ -27,7 +27,6 @@ public struct HomeView: View {
                     }
                 }
                     .frame(width: 38, height: 19)
-                    .shadow(color: Color(Sunset.orange).opacity(0.6), radius: 14)
                     .padding(.bottom, 22)
                     .opacity(appeared ? 0.95 : 0)
                     .scaleEffect(appeared ? 1 : 0.8)
