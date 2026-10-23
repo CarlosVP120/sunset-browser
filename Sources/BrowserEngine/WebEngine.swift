@@ -58,11 +58,19 @@ public protocol WebPage: AnyObject {
     func goBack()
     func goForward()
     func reload()
+    /// Recarga forzada: vuelve a descargarlo todo, sin caché.
+    func reloadIgnoringCache()
     func stopLoading()
+    /// Busca texto en la página y lo resalta. Devuelve si lo encontró.
+    func find(_ text: String, backwards: Bool) async -> Bool
+    func printPage()
 }
 
 /// Fábrica de páginas. Cambiar de motor (WebKit → Chromium/CEF) es cambiar esta pieza.
 @MainActor
 public protocol WebEngine: AnyObject {
-    func makePage() -> WebPage
+    /// Crea una página. `profile` separa cookies, sesiones y almacenamiento (perfiles de Arc).
+    func makePage(profile: UUID?) -> WebPage
+    /// Borra los datos web (cookies, caché, almacenamiento) de un perfil eliminado.
+    func removeProfileData(_ profile: UUID)
 }

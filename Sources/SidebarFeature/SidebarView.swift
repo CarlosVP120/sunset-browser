@@ -9,6 +9,7 @@ public struct SidebarView: View {
     let accessory: AnyView?
     /// Hacia dónde se desliza el contenido al cambiar de espacio.
     @State private var spaceTransitionEdge: Edge = .trailing
+    @Environment(\.spaceTheme) private var theme
 
     public init(browser: Browser, accessory: AnyView? = nil) {
         self.browser = browser
@@ -43,7 +44,7 @@ public struct SidebarView: View {
             BottomBar(browser: browser)
         }
         .padding(.horizontal, 8)
-        .environment(\.colorScheme, browser.activeSpace.theme.isDark ? .dark : .light)
+        .environment(\.colorScheme, theme.isDark ? .dark : .light)
         .onChange(of: browser.activeSpaceID) { oldID, newID in
             let oldIndex = browser.spaces.firstIndex { $0.id == oldID } ?? 0
             let newIndex = browser.spaces.firstIndex { $0.id == newID } ?? 0
@@ -57,10 +58,11 @@ public struct SidebarView: View {
 private struct SpaceContent: View {
     let browser: Browser
     let space: Space
+    @Environment(\.spaceTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SpaceHeader(space: space)
+            SpaceHeader(browser: browser, space: space)
                 .sidebarDropTarget { size, zone in
                     SidebarDropDelegate(browser: browser, size: size,
                                         location: { _ in .pinned(0) },
@@ -85,7 +87,7 @@ private struct SpaceContent: View {
             }
 
             Rectangle()
-                .fill(Color(space.theme.title).opacity(0.10))
+                .fill(Color(theme.title).opacity(0.10))
                 .frame(height: 1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 8)
@@ -138,24 +140,6 @@ private struct TopRow: View {
         .buttonStyle(ChromeButtonStyle())
         .padding(.leading, Theme.windowButtonsInset - 8)
         .frame(height: Theme.toolbarHeight)
-    }
-}
-
-private struct SpaceHeader: View {
-    let space: Space
-
-    var body: some View {
-        HStack(spacing: 8) {
-            SpaceIcon(space.icon)
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 16)
-            Text(space.name)
-                .font(.system(size: 13, weight: .semibold))
-            Spacer()
-        }
-        .foregroundStyle(Color(space.theme.subtitle).opacity(1.4))
-        .padding(.horizontal, 10)
-        .frame(height: 28)
     }
 }
 
@@ -452,6 +436,7 @@ private struct BottomBar: View {
                         .scaleEffect(isActive ? 1.1 : 1)
                 }
                 .tooltip(space.name, shortcut: index < 9 ? "⌃\(index + 1)" : nil)
+                .contextMenu { SpaceMenu(browser: browser, space: space) }
             }
 
             Spacer()

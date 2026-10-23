@@ -13,9 +13,11 @@ struct BrowserWindow: View {
     /// Barra lateral flotante al acercar el ratón al borde izquierdo con la barra oculta.
     @State private var isPeekingSidebar = false
     @State private var isResizingSidebar = false
+    @Environment(\.colorScheme) private var systemColorScheme
 
     var body: some View {
-        let theme = browser.activeSpace.theme
+        // Los temas en modo "Automático" siguen el modo claro/oscuro del sistema.
+        let theme = browser.activeSpace.theme.resolved(systemIsDark: systemColorScheme == .dark)
 
         ZStack(alignment: .topLeading) {
             HStack(spacing: 0) {
@@ -34,11 +36,14 @@ struct BrowserWindow: View {
                     }
 
                     WebContentArea(browser: browser)
-                        .overlay(alignment: .top) { PageLoadingBar(tab: browser.selectedTab) }
+                        .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                         .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                         .overlay(alignment: .top) {
                             ZoomIndicatorView(browser: browser).padding(.top, 10)
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            FindBar(browser: browser).padding([.top, .trailing], 10)
                         }
                         .padding(.top, browser.showsToolbar ? 0 : 6)
                         .padding(.leading, browser.showsSidebar ? 0 : 6)
@@ -78,6 +83,12 @@ struct BrowserWindow: View {
         .animation(Theme.spring, value: browser.showsToolbar)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
+        .sheet(isPresented: Binding(
+            get: { browser.showsSpaceManager },
+            set: { browser.showsSpaceManager = $0 }
+        )) {
+            SpaceManagerView(browser: browser)
+        }
     }
 
     @ViewBuilder
@@ -104,7 +115,7 @@ struct BrowserWindow: View {
         if isPeekingSidebar {
             SidebarView(browser: browser, accessory: sidebarAccessory)
                 .frame(width: browser.sidebarWidth)
-                .background(SpaceBackground(theme: browser.activeSpace.theme))
+                .background(SpaceBackground(theme: browser.activeSpace.theme.resolved(systemIsDark: systemColorScheme == .dark)))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)

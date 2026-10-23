@@ -11,6 +11,16 @@ public final class Browser {
     public private(set) var activeSpaceID: Space.ID
     /// Pestañas cerradas, de la más reciente a la más antigua.
     public private(set) var archive: [ArchivedTab] = []
+    /// Perfiles además del predeterminado.
+    public private(set) var profiles: [Profile] = []
+    /// Editor abierto de un espacio (icono, nombre o tema).
+    public var spaceEditor: SpaceEditorRequest?
+    /// Ventana para ordenar, renombrar y borrar espacios.
+    public var showsSpaceManager = false
+    /// Barra de búsqueda en la página (⌘F).
+    public var isFindBarVisible = false
+    /// Se incrementa para pedir a la barra de búsqueda el siguiente (+1) o el anterior (-1).
+    public internal(set) var findRequest = FindRequest(direction: 0)
     /// El Command Bar abierto, si lo hay.
     public var commandBar: CommandBarMode?
     /// Último cambio de zoom, para mostrar el indicador.
@@ -410,7 +420,10 @@ public final class Browser {
     }
 
     private func makeTab(url: URL?, id: UUID = UUID(), title: String = "", faviconURL: URL? = nil) -> BrowserTab {
-        let tab = BrowserTab(id: id, url: url, title: title, faviconURL: faviconURL) { [engine] in engine.makePage() }
+        let tab = BrowserTab(id: id, url: url, title: title, faviconURL: faviconURL) { [weak self, engine] in
+            // La página se crea con el perfil del espacio en el que está la pestaña.
+            engine.makePage(profile: self?.profileID(forTabID: id))
+        }
         tab.onStateChange = { [weak self, weak tab] in
             guard let self else { return }
             scheduleSave()
@@ -427,6 +440,30 @@ public final class Browser {
         return tab
     }
 
+    func replaceSpaces(_ newSpaces: [Space]) {
+        spaces = newSpaces
+        scheduleSave()
+    }
+
+    func setProfiles(_ newProfiles: [Profile]) {
+        profiles = newProfiles
+        scheduleSave()
+    }
+
+    func removeProfileData(_ profile: UUID) {
+        engine.removeProfileData(profile)
+    }
+
+    func insertIntoArchive(_ archived: ArchivedTab) {
+        archive.insert(archived, at: 0)
+        archive = Array(archive.prefix(Self.archiveLimit))
+    }
+
+    /// Una pestaña nueva (hibernada) con la misma página.
+    func copyTab(_ tab: BrowserTab) -> BrowserTab {
+        makeTab(url: tab.url, title: tab.title, faviconURL: tab.faviconURL)
+    }
+
     /// Muestra la pestaña, cambiando de espacio si hace falta.
     public func reveal(_ tab: BrowserTab) {
         if !isFavorite(tab), let space = spaces.first(where: { $0.allTabs.contains { $0.id == tab.id } }),
@@ -436,7 +473,7 @@ public final class Browser {
         select(tab)
     }
 
-    private func showSelectedTab() {
+    func showSelectedTab() {
         selectedTab?.wake()
         syncActivePage()
     }
@@ -450,7 +487,7 @@ public final class Browser {
     }
 
     /// Saca la pestaña de donde esté (favoritos o cualquier espacio).
-    private func detach(_ tab: BrowserTab) {
+    func detach(_ tab: BrowserTab) {
         favorites.removeAll { $0.id == tab.id }
         for space in spaces { space.remove(tab) }
     }
@@ -467,6 +504,7 @@ public final class Browser {
                     name: space.name,
                     icon: space.icon,
                     theme: space.theme,
+                    profileID: space.profileID,
                     pinned: space.pinned.map { item in
                         switch item {
                         case .tab(let tab):
@@ -481,7 +519,8 @@ public final class Browser {
                 )
             },
             activeSpaceID: activeSpaceID,
-            archive: archive
+            archive: archive,
+            profiles: profiles
         )
     }
 
@@ -503,9 +542,11 @@ public final class Browser {
             }
             space.tabs = record.tabs.map(tab)
             space.selectedTabID = record.selectedTabID
+            space.profileID = record.profileID
             return space
         }
         if let activeSpaceID = snapshot.activeSpaceID { self.activeSpaceID = activeSpaceID }
         archive = snapshot.archive
+        profiles = snapshot.profiles
     }
 }

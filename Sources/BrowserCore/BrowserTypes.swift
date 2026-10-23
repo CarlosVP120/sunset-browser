@@ -22,3 +22,24 @@ public struct ZoomIndicator: Equatable, Sendable {
     public let id = UUID()
     public let zoom: Double
 }
+
+/// Petición a la barra de búsqueda: siguiente (+1) o anterior (-1) coincidencia.
+public struct FindRequest: Equatable, Sendable {
+    public let id = UUID()
+    public let direction: Int
+}
+
+/// Qué editor del espacio está abierto (desde su menú contextual).
+public struct SpaceEditorRequest: Equatable, Sendable {
+    public enum Kind: Sendable {
+        case icon, rename, theme
+    }
+
+    public let spaceID: UUID
+    public let kind: Kind
+
+    public init(spaceID: UUID, kind: Kind) {
+        self.spaceID = spaceID
+        self.kind = kind
+    }
+}

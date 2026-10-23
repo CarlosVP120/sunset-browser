@@ -24,6 +24,9 @@ final class FakePage: WebPage {
     func goBack() {}
     func goForward() {}
     func reload() {}
+    func reloadIgnoringCache() {}
+    func find(_ text: String, backwards: Bool) async -> Bool { false }
+    func printPage() {}
     func stopLoading() {}
 }
 
@@ -31,7 +34,12 @@ final class FakePage: WebPage {
 final class FakeEngine: WebEngine {
     private(set) var pages: [FakePage] = []
 
-    func makePage() -> WebPage {
+    private(set) var profiles: [UUID?] = []
+
+    func removeProfileData(_ profile: UUID) {}
+
+    func makePage(profile: UUID?) -> WebPage {
+        profiles.append(profile)
         let page = FakePage()
         pages.append(page)
         return page

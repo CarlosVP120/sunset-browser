@@ -41,6 +41,8 @@ public final class Space: Identifiable {
     /// Un SF Symbol o un emoji.
     public var icon: String
     public var theme: SpaceTheme
+    /// Perfil del espacio (cookies y sesiones propias); `nil` es el predeterminado.
+    public internal(set) var profileID: UUID?
 
     public internal(set) var pinned: [SidebarItem] = []
     public internal(set) var tabs: [BrowserTab] = []
@@ -88,4 +90,15 @@ public struct ArchivedTab: Codable, Identifiable, Equatable, Sendable {
     public var url: URL
     public var title: String
     public var closedAt: Date
+}
+
+/// Un perfil: cookies, sesiones y datos web separados (p. ej. "Trabajo" con otra cuenta de Google).
+public struct Profile: Codable, Identifiable, Equatable, Sendable {
+    public var id: UUID
+    public var name: String
+
+    public init(id: UUID = UUID(), name: String) {
+        self.id = id
+        self.name = name
+    }
 }

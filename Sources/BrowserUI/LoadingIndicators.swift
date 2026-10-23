@@ -1,96 +1,97 @@
 import SwiftUI
 import BrowserCore
 
-/// Línea de luz que recorre el borde superior de la página mientras carga.
-/// Sigue el progreso real, tiene una "cabeza" brillante y, al terminar, completa el
-/// recorrido con un destello y se desvanece.
-public struct PageLoadingBar: View {
+/// Resplandor de carga al estilo Apple Intelligence: un gradiente de colores vivos que gira
+/// por el borde de la página, con varias capas de desenfoque para dar profundidad y una
+/// ligera "respiración". Al terminar la carga hace un destello breve y se desvanece.
+public struct PageEdgeGlow: View {
     let tab: BrowserTab?
-    @Environment(\.spaceTheme) private var theme
+    var cornerRadius: CGFloat
 
-    @State private var shownProgress: Double = 0
-    @State private var opacity: Double = 0
+    @State private var intensity: Double = 0
     @State private var flash: Double = 0
-    @State private var finishTask: Task<Void, Never>?
+    @State private var isAnimating = false
+    @State private var fadeTask: Task<Void, Never>?
 
-    public init(tab: BrowserTab?) {
+    /// Paleta tipo Apple Intelligence: azul, morado, rosa, naranja y cian.
+    private static let colors: [Color] = [
+        Color(red: 0.18, green: 0.49, blue: 0.97),
+        Color(red: 0.69, green: 0.32, blue: 0.87),
+        Color(red: 1.00, green: 0.22, blue: 0.37),
+        Color(red: 1.00, green: 0.62, blue: 0.04),
+        Color(red: 0.35, green: 0.78, blue: 0.98),
+        Color(red: 0.18, green: 0.49, blue: 0.97),
+    ]
+
+    public init(tab: BrowserTab?, cornerRadius: CGFloat = Theme.cornerRadius) {
         self.tab = tab
+        self.cornerRadius = cornerRadius
     }
 
     public var body: some View {
-        let accent = Color(theme.accent)
+        TimelineView(.animation(paused: !isAnimating)) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            let rotation = Angle.degrees(time.truncatingRemainder(dividingBy: 360 / 70) * 70)
+            let breathing = 0.85 + 0.15 * sin(time * 2.6)
 
-        GeometryReader { geometry in
-            let width = geometry.size.width * shownProgress
-
-            ZStack(alignment: .leading) {
-                // Estela: se aclara hacia la cabeza.
-                Capsule()
-                    .fill(LinearGradient(colors: [accent.opacity(0), accent.opacity(0.8), accent, .white],
-                                         startPoint: .leading, endPoint: .trailing))
-                    .frame(width: width, height: 2.5)
-                    .shadow(color: accent.opacity(0.9), radius: 4)
-                    .shadow(color: accent.opacity(0.5), radius: 10)
-
-                // Cabeza brillante.
-                Circle()
-                    .fill(.white)
-                    .frame(width: 7, height: 7)
-                    .blur(radius: 2.5)
-                    .shadow(color: accent, radius: 8)
-                    .offset(x: max(width - 4, 0), y: -2.25)
-                    .opacity(shownProgress < 1 ? 1 : 0)
-
-                // Destello final a lo ancho.
-                Rectangle()
-                    .fill(LinearGradient(colors: [accent.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom))
-                    .frame(height: 14)
-                    .opacity(flash)
+            ZStack {
+                // Halo amplio y difuso hacia dentro.
+                edge(lineWidth: 16, blur: 22, rotation: rotation + .degrees(40))
+                    .opacity(0.45 * breathing)
+                // Brillo medio.
+                edge(lineWidth: 6, blur: 7, rotation: rotation)
+                    .opacity(0.75 * breathing)
+                // Filo nítido.
+                edge(lineWidth: 1.6, blur: 0, rotation: rotation - .degrees(25))
+                    .opacity(0.9)
+                // Destello final: el filo se vuelve blanco un instante.
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(.white, lineWidth: 2)
+                    .blur(radius: 3)
+                    .opacity(flash * 0.8)
             }
-            .opacity(opacity)
+            .drawingGroup()
         }
-        .frame(height: 14, alignment: .top)
+        .opacity(intensity)
         .allowsHitTesting(false)
         .onChange(of: tab?.isLoading, initial: true) { _, isLoading in update(isLoading: isLoading == true) }
-        .onChange(of: tab?.progress) { _, progress in
-            guard tab?.isLoading == true, let progress else { return }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
-                shownProgress = max(shownProgress, 0.08 + progress * 0.9)
-            }
-        }
         .onChange(of: tab?.id) {
             // Al cambiar de pestaña no se anima: se muestra su estado tal cual.
-            finishTask?.cancel()
+            fadeTask?.cancel()
             let isLoading = tab?.isLoading == true
-            shownProgress = isLoading ? 0.08 + (tab?.progress ?? 0) * 0.9 : 0
-            opacity = isLoading ? 1 : 0
+            intensity = isLoading ? 1 : 0
             flash = 0
+            isAnimating = isLoading
         }
     }
 
+    private func edge(lineWidth: CGFloat, blur: CGFloat, rotation: Angle) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                AngularGradient(colors: Self.colors, center: .center, angle: rotation),
+                lineWidth: lineWidth
+            )
+            .blur(radius: blur)
+    }
+
     private func update(isLoading: Bool) {
-        finishTask?.cancel()
+        fadeTask?.cancel()
         if isLoading {
+            isAnimating = true
             flash = 0
-            if opacity == 0 { shownProgress = 0 }
-            withAnimation(.easeOut(duration: 0.15)) { opacity = 1 }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.9)) {
-                shownProgress = max(shownProgress, 0.08 + (tab?.progress ?? 0) * 0.9)
-            }
-        } else if opacity > 0 {
-            finishTask = Task { @MainActor in
-                withAnimation(.easeOut(duration: 0.22)) { shownProgress = 1 }
-                try? await Task.sleep(for: .milliseconds(200))
-                withAnimation(.easeOut(duration: 0.12)) { flash = 1 }
-                try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.easeOut(duration: 0.45)) { intensity = 1 }
+        } else if intensity > 0 {
+            fadeTask = Task { @MainActor in
+                withAnimation(.easeOut(duration: 0.14)) { flash = 1 }
+                try? await Task.sleep(for: .milliseconds(140))
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.45)) {
+                withAnimation(.easeInOut(duration: 0.9)) {
                     flash = 0
-                    opacity = 0
+                    intensity = 0
                 }
-                try? await Task.sleep(for: .milliseconds(450))
+                try? await Task.sleep(for: .milliseconds(900))
                 guard !Task.isCancelled else { return }
-                shownProgress = 0
+                isAnimating = false
             }
         }
     }

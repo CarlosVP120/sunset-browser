@@ -26,6 +26,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var name: String
         public var icon: String
         public var theme: SpaceTheme
+        public var profileID: UUID?
         public var pinned: [ItemRecord]
         public var tabs: [TabRecord]
         public var selectedTabID: UUID?
@@ -35,6 +36,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             name: String,
             icon: String,
             theme: SpaceTheme,
+            profileID: UUID? = nil,
             pinned: [ItemRecord],
             tabs: [TabRecord],
             selectedTabID: UUID?
@@ -43,13 +45,14 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             self.name = name
             self.icon = icon
             self.theme = theme
+            self.profileID = profileID
             self.pinned = pinned
             self.tabs = tabs
             self.selectedTabID = selectedTabID
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, name, icon, theme, color, pinned, tabs, selectedTabID
+            case id, name, icon, theme, color, profileID, pinned, tabs, selectedTabID
         }
 
         public init(from decoder: Decoder) throws {
@@ -64,6 +67,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
                 let color = try container.decodeIfPresent(SpaceColor.self, forKey: .color) ?? .navy
                 theme = .dark(from: color)
             }
+            profileID = try container.decodeIfPresent(UUID.self, forKey: .profileID)
             pinned = try container.decode([ItemRecord].self, forKey: .pinned)
             tabs = try container.decode([TabRecord].self, forKey: .tabs)
             selectedTabID = try container.decodeIfPresent(UUID.self, forKey: .selectedTabID)
@@ -75,6 +79,7 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
             try container.encode(name, forKey: .name)
             try container.encode(icon, forKey: .icon)
             try container.encode(theme, forKey: .theme)
+            try container.encodeIfPresent(profileID, forKey: .profileID)
             try container.encode(pinned, forKey: .pinned)
             try container.encode(tabs, forKey: .tabs)
             try container.encodeIfPresent(selectedTabID, forKey: .selectedTabID)
@@ -85,6 +90,34 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
     public var spaces: [SpaceRecord]
     public var activeSpaceID: UUID?
     public var archive: [ArchivedTab]
+    public var profiles: [Profile]
+
+    public init(
+        favorites: [TabRecord],
+        spaces: [SpaceRecord],
+        activeSpaceID: UUID?,
+        archive: [ArchivedTab],
+        profiles: [Profile] = []
+    ) {
+        self.favorites = favorites
+        self.spaces = spaces
+        self.activeSpaceID = activeSpaceID
+        self.archive = archive
+        self.profiles = profiles
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case favorites, spaces, activeSpaceID, archive, profiles
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        favorites = try container.decode([TabRecord].self, forKey: .favorites)
+        spaces = try container.decode([SpaceRecord].self, forKey: .spaces)
+        activeSpaceID = try container.decodeIfPresent(UUID.self, forKey: .activeSpaceID)
+        archive = try container.decodeIfPresent([ArchivedTab].self, forKey: .archive) ?? []
+        profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
+    }
 }
 
 /// Lee y guarda la barra lateral en un archivo JSON.

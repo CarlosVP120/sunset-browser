@@ -83,6 +83,13 @@ public final class BrowserTab: Identifiable {
         isLoading = false
     }
 
+    /// Descarta la página por completo (sin guardar historial): al volver, se carga de cero.
+    /// Se usa al cambiar de perfil, para que la página use las cookies del nuevo.
+    func discardPage() {
+        hibernate()
+        savedInteractionState = nil
+    }
+
     public func load(_ url: URL) {
         if page == nil {
             self.url = url
@@ -99,6 +106,11 @@ public final class BrowserTab: Identifiable {
     }
 
     public func stopLoading() { page?.stopLoading() }
+
+    /// Recarga forzada, sin caché (⇧⌘R).
+    public func reloadIgnoringCache() {
+        if let page { page.reloadIgnoringCache() } else { wake() }
+    }
 
     private func apply(_ snapshot: WebPageSnapshot) {
         let before = (title, url, faviconURL)

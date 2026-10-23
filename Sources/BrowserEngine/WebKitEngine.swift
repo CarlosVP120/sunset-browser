@@ -27,8 +27,26 @@ public final class WebKitEngine: WebEngine {
         extensionsHost as! WebExtensionsHost
     }
 
-    public func makePage() -> WebPage {
-        WebKitPage(configuration: configuration, extensionsHost: extensionsHost)
+    /// Configuración de cada perfil: cada uno con su propio almacén de datos web.
+    private var profileConfigurations: [UUID: WKWebViewConfiguration] = [:]
+
+    public func makePage(profile: UUID?) -> WebPage {
+        WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost)
+    }
+
+    private func configuration(for profile: UUID?) -> WKWebViewConfiguration {
+        guard let profile else { return configuration }
+        if let existing = profileConfigurations[profile] { return existing }
+        let profileConfiguration = configuration.copy() as! WKWebViewConfiguration
+        profileConfiguration.websiteDataStore = WKWebsiteDataStore(forIdentifier: profile)
+        profileConfigurations[profile] = profileConfiguration
+        return profileConfiguration
+    }
+
+    /// Borra cookies, caché y almacenamiento de un perfil eliminado.
+    public func removeProfileData(_ profile: UUID) {
+        profileConfigurations[profile] = nil
+        WKWebsiteDataStore.remove(forIdentifier: profile) { _ in }
     }
 }
 
@@ -67,6 +85,8 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
         super.init()
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
+        // "Inspeccionar elemento" en el menú contextual (herramientas para desarrolladores).
+        webView.isInspectable = true
         webView.uiDelegate = self
 
         // WKWebView publica estos cambios por KVO en el hilo principal.
@@ -96,7 +116,23 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
     func goBack() { webView.goBack() }
     func goForward() { webView.goForward() }
     func reload() { webView.reload() }
+    func reloadIgnoringCache() { webView.reloadFromOrigin() }
     func stopLoading() { webView.stopLoading() }
+
+    func find(_ text: String, backwards: Bool) async -> Bool {
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.caseSensitive = false
+        configuration.wraps = true
+        return (try? await webView.find(text, configuration: configuration).matchFound) ?? false
+    }
+
+    func printPage() {
+        guard let window = webView.window else { return }
+        let operation = webView.printOperation(with: .shared)
+        operation.view?.frame = webView.bounds
+        operation.runModal(for: window, delegate: nil, didRun: nil, contextInfo: nil)
+    }
 
     func setActive(_ isActive: Bool) {
         guard isActive != self.isActive else { return }
