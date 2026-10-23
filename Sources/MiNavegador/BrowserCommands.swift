@@ -87,6 +87,9 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("]")
             Button("Recargar") { browser.selectedTab?.reload() }
                 .keyboardShortcut("r")
+            Button("Detener") { browser.selectedTab?.stopLoading() }
+                .keyboardShortcut(".")
+                .disabled(browser.selectedTab?.isLoading != true)
             Divider()
             Button("Fijar / desfijar pestaña") {
                 if let tab = browser.selectedTab { browser.togglePin(tab) }

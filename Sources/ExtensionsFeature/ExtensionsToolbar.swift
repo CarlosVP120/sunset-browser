@@ -64,7 +64,7 @@ private struct ExtensionActionButton: View {
                 }
             }
         }
-        .help(action?.label ?? "")
+        .tooltip(action?.label ?? "Extensión")
         .background(GeometryReader { proxy in
             Color.clear
                 .onAppear { frame = proxy.frame(in: .global) }
@@ -100,7 +100,7 @@ private struct ExtensionsMenuButton: View {
                     }
                 }
         }
-        .help("Extensiones")
+        .tooltip("Extensiones")
         .popover(isPresented: $showsPanel, arrowEdge: .bottom) {
             ExtensionsPanel(browser: browser, host: host, storeID: canInstallFromStore ? storeID : nil)
         }

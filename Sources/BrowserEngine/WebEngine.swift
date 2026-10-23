@@ -6,6 +6,8 @@ public struct WebPageSnapshot: Equatable, Sendable {
     public var url: URL?
     public var faviconURL: URL?
     public var isLoading: Bool
+    /// Progreso estimado de la carga, de 0 a 1.
+    public var progress: Double
     public var canGoBack: Bool
     public var canGoForward: Bool
 
@@ -14,6 +16,7 @@ public struct WebPageSnapshot: Equatable, Sendable {
         url: URL?,
         faviconURL: URL? = nil,
         isLoading: Bool,
+        progress: Double = 1,
         canGoBack: Bool,
         canGoForward: Bool
     ) {
@@ -21,6 +24,7 @@ public struct WebPageSnapshot: Equatable, Sendable {
         self.url = url
         self.faviconURL = faviconURL
         self.isLoading = isLoading
+        self.progress = progress
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
     }

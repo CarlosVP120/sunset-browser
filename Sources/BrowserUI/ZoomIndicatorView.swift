@@ -17,13 +17,16 @@ public struct ZoomIndicatorView: View {
             if let indicator = visibleIndicator {
                 HStack(spacing: 2) {
                     Button { browser.zoomOut() } label: { Image(systemName: "minus") }
+                        .tooltip("Alejar", shortcut: "⌘-")
                     Text("\(Int((indicator.zoom * 100).rounded())) %")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .frame(minWidth: 46)
                         .contentTransition(.numericText(value: indicator.zoom))
                     Button { browser.zoomIn() } label: { Image(systemName: "plus") }
+                        .tooltip("Acercar", shortcut: "⌘+")
                     Divider().frame(height: 14).padding(.horizontal, 4)
                     Button("Restablecer") { browser.resetZoom() }
+                        .tooltip("Tamaño real", shortcut: "⌘0")
                         .font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 6)
                 }

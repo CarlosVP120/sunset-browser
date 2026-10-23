@@ -10,6 +10,8 @@ public final class BrowserTab: Identifiable {
     public private(set) var url: URL?
     public private(set) var faviconURL: URL?
     public private(set) var isLoading = false
+    /// Progreso de la carga, de 0 a 1.
+    public private(set) var progress: Double = 1
     public private(set) var canGoBack = false
     public private(set) var canGoForward = false
     /// La página en memoria; `nil` mientras la pestaña está hibernada.
@@ -107,6 +109,7 @@ public final class BrowserTab: Identifiable {
         url = snapshot.url ?? url
         faviconURL = snapshot.faviconURL ?? faviconURL
         isLoading = snapshot.isLoading
+        progress = snapshot.progress
         canGoBack = snapshot.canGoBack
         canGoForward = snapshot.canGoForward
         if before != (title, url, faviconURL) { onStateChange?() }

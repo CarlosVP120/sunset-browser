@@ -34,6 +34,7 @@ struct BrowserWindow: View {
                     }
 
                     WebContentArea(browser: browser)
+                        .overlay(alignment: .top) { PageLoadingBar(tab: browser.selectedTab) }
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                         .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                         .overlay(alignment: .top) {

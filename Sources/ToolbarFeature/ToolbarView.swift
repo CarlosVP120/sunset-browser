@@ -22,7 +22,7 @@ public struct ToolbarView<Trailing: View>: View {
                     } label: {
                         Image(systemName: "sidebar.left")
                     }
-                    .help("Mostrar la barra lateral (⌘S)")
+                    .tooltip("Mostrar barra lateral", shortcut: "⌘S")
                     .transition(.opacity)
                 }
                 NavigationButtons(tab: browser.selectedTab)

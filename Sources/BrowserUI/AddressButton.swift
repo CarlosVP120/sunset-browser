@@ -35,7 +35,7 @@ public struct AddressButton: View {
                 .buttonStyle(PillButtonStyle())
             }
             .animation(Theme.spring, value: browser.selectedTab?.url?.host())
-            .help("Buscar o escribir una URL (⌘L)")
+            .tooltip("Buscar o escribir una URL", shortcut: "⌘L")
 
         case .sidebar:
             Button { browser.editCurrentTab() } label: {
@@ -53,7 +53,7 @@ public struct AddressButton: View {
                 .frame(height: 32)
             }
             .buttonStyle(PillButtonStyle(restingOpacity: 0.55, cornerRadius: Theme.cornerRadius))
-            .help("Buscar o escribir una URL (⌘L)")
+            .tooltip("Buscar o escribir una URL", shortcut: "⌘L")
         }
     }
 
@@ -129,7 +129,7 @@ private struct SiteInfoButton: View {
                 .font(.system(size: 12, weight: .semibold))
         }
         .buttonStyle(ChromeButtonStyle(size: 24))
-        .help("Información del sitio")
+        .tooltip("Información del sitio")
         .popover(isPresented: $showsInfo, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {

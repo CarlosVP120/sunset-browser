@@ -81,6 +81,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
             webView.observe(\.url) { _, _ in notify() },
             webView.observe(\.canGoBack) { _, _ in notify() },
             webView.observe(\.canGoForward) { _, _ in notify() },
+            webView.observe(\.estimatedProgress) { _, _ in notify() },
             webView.observe(\.isLoading) { webView, _ in
                 notify()
                 if !webView.isLoading { finished() }
@@ -137,6 +138,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate {
             url: webView.url,
             faviconURL: faviconURL,
             isLoading: webView.isLoading,
+            progress: webView.estimatedProgress,
             canGoBack: webView.canGoBack,
             canGoForward: webView.canGoForward
         ))

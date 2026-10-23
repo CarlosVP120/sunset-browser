@@ -13,17 +13,17 @@ public struct NavigationButtons: View {
         HStack(spacing: 2) {
             Button { tab?.goBack() } label: { Image(systemName: "arrow.left") }
                 .disabled(!(tab?.canGoBack ?? false))
-                .help("Atrás")
+                .tooltip("Atrás", shortcut: "⌘[")
             Button { tab?.goForward() } label: { Image(systemName: "arrow.right") }
                 .disabled(!(tab?.canGoForward ?? false))
-                .help("Adelante")
+                .tooltip("Adelante", shortcut: "⌘]")
             Button {
                 if tab?.isLoading == true { tab?.stopLoading() } else { tab?.reload() }
             } label: {
                 Image(systemName: tab?.isLoading == true ? "xmark" : "arrow.clockwise")
             }
             .disabled(tab == nil)
-            .help("Recargar")
+            .tooltip(tab?.isLoading == true ? "Detener" : "Recargar", shortcut: tab?.isLoading == true ? "⌘." : "⌘R")
         }
         .buttonStyle(ChromeButtonStyle())
     }

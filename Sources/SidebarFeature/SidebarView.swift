@@ -127,7 +127,7 @@ private struct TopRow: View {
             } label: {
                 Image(systemName: "sidebar.left")
             }
-            .help("Ocultar la barra lateral (⌘S)")
+            .tooltip("Ocultar barra lateral", shortcut: "⌘S")
 
             Spacer()
             if !browser.showsToolbar {
@@ -189,11 +189,11 @@ private struct FavoriteTile: View {
         let isSelected = browser.selectedTab?.id == tab.id
 
         Button { browser.select(tab) } label: {
-            FaviconView(tab: tab, size: 18)
+            LoadingFavicon(tab: tab, size: 18)
                 .opacity(tab.isHibernated && !isSelected ? 0.8 : 1)
         }
         .buttonStyle(FavoriteTileStyle(isSelected: isSelected))
-        .help(tab.displayTitle)
+        .tooltip(tab.displayTitle)
         .onDrag { DragPayload.provider(for: tab) }
         .contextMenu {
             Button("Quitar de favoritos") { browser.removeFromFavorites(tab) }
@@ -288,14 +288,7 @@ private struct TabRowLabel: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            FaviconView(tab: tab)
-                .overlay(alignment: .bottomTrailing) {
-                    if tab.isLoading {
-                        Circle().fill(Color(theme.accent)).frame(width: 5, height: 5)
-                            .offset(x: 2, y: 2)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
+            LoadingFavicon(tab: tab)
             Text(tab.displayTitle)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -306,7 +299,7 @@ private struct TabRowLabel: View {
                     .font(.system(size: 9.5, weight: .bold))
             }
             .buttonStyle(ChromeButtonStyle(size: 22))
-            .help(isPinned ? "Descargar de memoria" : "Cerrar pestaña")
+            .tooltip(isPinned ? "Descargar de memoria" : "Cerrar pestaña", shortcut: "⌘W")
             .opacity(isHovering ? 1 : 0)
             .scaleEffect(isHovering ? 1 : 0.7)
             .animation(Theme.hoverIn, value: isHovering)
@@ -414,6 +407,7 @@ private struct NewTabRow: View {
             .padding(.horizontal, 10)
         }
         .buttonStyle(SidebarRowStyle(isSelected: false))
+        .tooltip("Nueva pestaña", shortcut: "⌘T")
     }
 }
 
@@ -442,14 +436,14 @@ private struct BottomBar: View {
             Button { showsArchive.toggle() } label: {
                 Image(systemName: "archivebox")
             }
-            .help("Archivo de pestañas cerradas")
+            .tooltip("Pestañas cerradas", shortcut: "⇧⌘T")
             .popover(isPresented: $showsArchive, arrowEdge: .top) {
                 ArchiveList(browser: browser) { showsArchive = false }
             }
 
             Spacer()
 
-            ForEach(browser.spaces) { space in
+            ForEach(Array(browser.spaces.enumerated()), id: \.element.id) { index, space in
                 let isActive = space.id == browser.activeSpaceID
                 Button { browser.activate(space) } label: {
                     SpaceIcon(space.icon, filled: isActive)
@@ -457,7 +451,7 @@ private struct BottomBar: View {
                         .opacity(isActive ? 1 : 0.5)
                         .scaleEffect(isActive ? 1.1 : 1)
                 }
-                .help(space.name)
+                .tooltip(space.name, shortcut: index < 9 ? "⌃\(index + 1)" : nil)
             }
 
             Spacer()
@@ -474,7 +468,7 @@ private struct BottomBar: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .foregroundStyle(Color(theme.title).opacity(0.85))
-            .help("Nuevo")
+            .tooltip("Nuevo")
         }
         .buttonStyle(ChromeButtonStyle())
         .animation(Theme.spring, value: browser.activeSpaceID)
