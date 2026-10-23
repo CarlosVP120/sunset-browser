@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import BrowserCore
 import BrowserUI
@@ -150,8 +151,15 @@ struct SpaceHeader: View {
         )
         .contentShape(Rectangle())
         .onHover { hovering in withAnimation(hovering ? Theme.hoverIn : Theme.hoverOut) { isHovering = hovering } }
-        .onTapGesture(count: 2) { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename) }
-        .onTapGesture { withAnimation(Theme.spring) { browser.togglePinnedSection(space) } }
+        // Un solo gesto: con `onTapGesture(count: 2)` SwiftUI retrasa el clic simple hasta
+        // descartar el doble y plegar tardaba. El primer clic pliega al instante; el segundo lo
+        // deshace y renombra.
+        .onTapGesture {
+            withAnimation(Theme.spring) { browser.togglePinnedSection(space) }
+            if NSApp.currentEvent?.clickCount == 2 {
+                browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename)
+            }
+        }
         .tooltip(space.isPinnedCollapsed ? "Mostrar fijadas" : "Plegar fijadas")
         .modifier(SpaceHeaderMenu(browser: browser, space: space, isEnabled: !inList))
         .popover(isPresented: binding(.theme), arrowEdge: .trailing) {
