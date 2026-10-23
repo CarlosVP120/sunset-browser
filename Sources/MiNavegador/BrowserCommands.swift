@@ -11,17 +11,46 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("t")
             Button("Abrir ubicación") { browser.requestURLFocus() }
                 .keyboardShortcut("l")
+            Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+                .disabled(browser.archive.isEmpty)
+            Divider()
+            Button("Nueva carpeta") { browser.newFolder() }
+                .keyboardShortcut("n", modifiers: [.command, .option])
             Divider()
             Button("Cerrar pestaña") { browser.closeSelectedTab() }
                 .keyboardShortcut("w")
         }
 
+        CommandGroup(replacing: .saveItem) {}
+
+        CommandGroup(after: .pasteboard) {
+            Button("Copiar URL") {
+                guard let url = browser.selectedTab?.url else { return }
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(url.absoluteString, forType: .string)
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+        }
+
+        CommandGroup(before: .sidebar) {
+            Button(browser.showsSidebar ? "Ocultar barra lateral" : "Mostrar barra lateral") {
+                withAnimation(.easeInOut(duration: 0.2)) { browser.showsSidebar.toggle() }
+            }
+            .keyboardShortcut("s")
+            Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
+                browser.showsToolbar.toggle()
+            }
+            .keyboardShortcut("t", modifiers: [.command, .option])
+            Divider()
+        }
+
         CommandMenu("Navegación") {
-            Button("Atrás") { browser.selectedTab?.page.goBack() }
+            Button("Atrás") { browser.selectedTab?.goBack() }
                 .keyboardShortcut("[")
-            Button("Adelante") { browser.selectedTab?.page.goForward() }
+            Button("Adelante") { browser.selectedTab?.goForward() }
                 .keyboardShortcut("]")
-            Button("Recargar") { browser.selectedTab?.page.reload() }
+            Button("Recargar") { browser.selectedTab?.reload() }
                 .keyboardShortcut("r")
             Divider()
             Button("Fijar / desfijar pestaña") {

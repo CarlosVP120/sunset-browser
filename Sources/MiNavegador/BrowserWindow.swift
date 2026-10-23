@@ -1,41 +1,55 @@
 import SwiftUI
 import BrowserCore
 import BrowserEngine
+import BrowserUI
 import SidebarFeature
+import ToolbarFeature
 
 struct BrowserWindow: View {
     let browser: Browser
 
     var body: some View {
-        let space = browser.activeSpace
-
         HStack(spacing: 0) {
-            SidebarView(browser: browser)
-                .frame(width: 260)
-
-            Group {
-                if let tab = browser.selectedTab {
-                    WebContentView(page: tab.page)
-                } else {
-                    EmptyTabView(browser: browser)
-                }
+            if browser.showsSidebar {
+                SidebarView(browser: browser)
+                    .frame(width: Theme.sidebarWidth)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
-            .padding([.top, .bottom, .trailing], 8)
+
+            VStack(spacing: 0) {
+                if browser.showsToolbar {
+                    ToolbarView(browser: browser)
+                        .environment(\.colorScheme, .dark)
+                }
+
+                WebContentArea(browser: browser)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                    .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                    .padding(.top, browser.showsToolbar ? 0 : 6)
+                    .padding(.leading, browser.showsSidebar ? 0 : 6)
+                    .padding([.trailing, .bottom], 6)
+            }
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(hue: space.hue, saturation: 0.35, brightness: 0.95),
-                    Color(hue: space.hue, saturation: 0.55, brightness: 0.80),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(SpaceBackground(color: browser.activeSpace.color))
+        .background(WindowConfigurator())
         .ignoresSafeArea()
-        .animation(.easeInOut(duration: 0.25), value: browser.activeSpaceID)
+    }
+}
+
+private struct WebContentArea: View {
+    let browser: Browser
+
+    var body: some View {
+        if let tab = browser.selectedTab {
+            if let page = tab.page {
+                WebContentView(page: page)
+            } else {
+                // Pestaña hibernada: se despierta al mostrarse.
+                Color.white.task(id: tab.id) { tab.wake() }
+            }
+        } else {
+            EmptyTabView(browser: browser)
+        }
     }
 }
 
@@ -56,17 +70,36 @@ struct WebContentView: NSViewRepresentable {
     }
 }
 
+/// Ventana transparente para que se vea el vidrio, y arrastrable desde el fondo.
+private struct WindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.isMovableByWindowBackground = true
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+
 private struct EmptyTabView: View {
     let browser: Browser
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             Image(systemName: "globe")
-                .font(.system(size: 40))
+                .font(.system(size: 36, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("No hay ninguna pestaña abierta")
-                .font(.title3)
-            Button("Nueva pestaña (⌘T)") { browser.newTab() }
+            Text("Ninguna pestaña abierta")
+                .font(.title3.weight(.medium))
+            Button("Nueva pestaña  ⌘T") { browser.newTab() }
+                .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
