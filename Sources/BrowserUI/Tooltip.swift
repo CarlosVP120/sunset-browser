@@ -12,6 +12,7 @@ private struct TooltipModifier: ViewModifier {
     let text: String
     let shortcut: String?
     @State private var frame: CGRect = .zero
+    @State private var id = UUID()
 
     func body(content: Content) -> some View {
         content
@@ -22,14 +23,14 @@ private struct TooltipModifier: ViewModifier {
             })
             .onHover { hovering in
                 if hovering {
-                    TooltipController.shared.show(text: text, shortcut: shortcut, below: frame)
+                    TooltipController.shared.show(text: text, shortcut: shortcut, below: frame, owner: id)
                 } else {
-                    TooltipController.shared.hide()
+                    TooltipController.shared.hide(owner: id)
                 }
             }
             // Al hacer clic, el tooltip se aparta (como en macOS).
-            .simultaneousGesture(TapGesture().onEnded { TooltipController.shared.hide() })
-            .onDisappear { TooltipController.shared.hide() }
+            .simultaneousGesture(TapGesture().onEnded { TooltipController.shared.hide(owner: id) })
+            .onDisappear { TooltipController.shared.hide(owner: id) }
             .accessibilityHint(shortcut.map { "\(text) (\($0))" } ?? text)
     }
 }
@@ -43,6 +44,9 @@ final class TooltipController {
     private let panel: NSPanel
     private let hostingView: NSHostingView<TooltipBubble>
     private var pending: Task<Void, Never>?
+    /// De quién es el tooltip actual. Al pasar de un botón a otro, macOS puede avisar de la entrada
+    /// en el nuevo antes que de la salida del anterior: esa salida no debe borrar el tooltip nuevo.
+    private var owner: UUID?
     private var hiddenAt = Date.distantPast
     private var isShowing = false
 
@@ -64,8 +68,9 @@ final class TooltipController {
         panel.contentView = hostingView
     }
 
-    func show(text: String, shortcut: String?, below frame: CGRect) {
+    func show(text: String, shortcut: String?, below frame: CGRect, owner: UUID? = nil) {
         pending?.cancel()
+        self.owner = owner
         let isWarm = isShowing || Date().timeIntervalSince(hiddenAt) < Self.warmWindow
         pending = Task { [weak self] in
             if !isWarm { try? await Task.sleep(for: Self.delay) }
@@ -74,7 +79,10 @@ final class TooltipController {
         }
     }
 
-    func hide() {
+    /// Oculta el tooltip; con `owner`, solo si es suyo (sin él, cualquiera: p. ej. al abrir un menú).
+    func hide(owner: UUID? = nil) {
+        if let owner, owner != self.owner { return }
+        self.owner = nil
         pending?.cancel()
         guard isShowing else { return }
         isShowing = false
@@ -82,9 +90,13 @@ final class TooltipController {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.1
             panel.animator().alphaValue = 0
-        } completionHandler: { [panel] in
+        } completionHandler: { [weak self] in
+            // Si mientras tanto se mostró otro tooltip (pasar de un botón al de al lado), la ventana
+            // es suya: no se quita. Antes se miraba la transparencia, y el tooltip nuevo empieza
+            // transparente para aparecer con un fundido: se borraba justo al nacer.
             Task { @MainActor in
-                if panel.alphaValue == 0 { panel.orderOut(nil) }
+                guard let self, !self.isShowing else { return }
+                self.panel.orderOut(nil)
             }
         }
     }

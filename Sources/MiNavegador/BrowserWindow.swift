@@ -207,15 +207,7 @@ private struct WebContentArea: View {
                     } else {
                         WebContentView(page: page, cornerRadius: Theme.cornerRadius)
                     }
-                    if let panel = browser.devPanel, tab.isDeveloperMode {
-                        DevToolsPanel(browser: browser, tab: tab, panel: panel)
-                            .frame(height: 240)
-                            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: Theme.cornerRadius,
-                                                              bottomTrailingRadius: Theme.cornerRadius, style: .continuous))
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
                 }
-                .animation(Theme.spring, value: browser.devPanel)
                 .animation(Theme.spring, value: browser.responsiveWidth)
             } else {
                 // Pestaña hibernada: se despierta al mostrarse.

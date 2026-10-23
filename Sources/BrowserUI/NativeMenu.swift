@@ -28,6 +28,11 @@ public enum MenuEntry {
 }
 
 public extension NSMenu {
+    /// Abre un menú nativo bajo el cursor (para botones normales que muestran un menú al pulsarlos).
+    static func popUpAtMouse(_ entries: [MenuEntry]) {
+        build(entries).popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
     /// Construye un menú de AppKit a partir de entradas.
     static func build(_ entries: [MenuEntry]) -> NSMenu {
         let menu = NSMenu()

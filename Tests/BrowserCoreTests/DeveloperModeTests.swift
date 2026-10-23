@@ -52,20 +52,4 @@ final class DeveloperModeTests: XCTestCase {
         XCTAssertEqual(log.messages.count, 500)
         XCTAssertEqual(log.messages.last?.text, "599")
     }
-
-    func testNetworkLogStartsOverOnANewPageAndCountsFailures() {
-        var log = NetworkLog()
-        log.append(NetworkRequest(method: "GET", url: "http://localhost:3000/", status: 200, kind: .document, duration: 20, size: 1000,
-                                  isNewDocument: true))
-        log.append(NetworkRequest(method: "GET", url: "http://localhost:3000/app.js", status: 200, kind: .js, duration: 5, size: 500))
-        log.append(NetworkRequest(method: "POST", url: "http://localhost:3000/api/login", status: 500, kind: .fetch, duration: 80, size: 0))
-        XCTAssertEqual(log.requests.count, 3)
-        XCTAssertEqual(log.totalSize, 1500)
-        XCTAssertEqual(log.requests.filter(\.isFailure).map(\.name), ["login"])
-        XCTAssertEqual(log.requests[0].name, "localhost/")
-
-        log.append(NetworkRequest(method: "GET", url: "http://localhost:3000/otra", status: 200, kind: .document, duration: 10, size: 10,
-                                  isNewDocument: true))
-        XCTAssertEqual(log.requests.map(\.name), ["otra"])
-    }
 }

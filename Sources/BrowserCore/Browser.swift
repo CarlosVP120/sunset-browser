@@ -33,14 +33,21 @@ public final class Browser {
     public var spaceEditor: SpaceEditorRequest?
     /// Ventana para ordenar, renombrar y borrar espacios.
     public var showsSpaceManager = false
-    /// Panel del modo desarrollador abierto bajo la página (consola o red).
-    public var devPanel: DevPanel? {
-        didSet { if devPanel == .console { selectedTab?.markConsoleSeen() } }
-    }
+    /// Última pestaña del inspector abierta desde la barra (para cerrarlo al pulsar el mismo botón).
+    public private(set) var inspectorPanel: InspectorPanel?
 
-    /// Abre ese panel, o lo cierra si ya estaba abierto (los botones de la barra).
-    public func toggleDevPanel(_ panel: DevPanel) {
-        devPanel = devPanel == panel ? nil : panel
+    /// Abre el inspector web en esa pestaña; si ya estaba abierto en ella, lo cierra (como los
+    /// botones de Arc con las DevTools de Chromium).
+    public func toggleInspector(_ panel: InspectorPanel) {
+        guard let page = selectedTab?.page else { return }
+        if page.isInspectorVisible, inspectorPanel == panel {
+            page.closeInspector()
+            inspectorPanel = nil
+        } else {
+            page.showInspector(panel)
+            inspectorPanel = panel
+            if panel == .console { selectedTab?.markConsoleSeen() }
+        }
     }
     /// Vista móvil del modo desarrollador: ancho simulado de la página (nil = ancho completo).
     public var responsiveWidth: Double?
@@ -206,7 +213,8 @@ public final class Browser {
         defaults.set(developerSites, forKey: "developerSites")
         for tab in allTabs { tab.refreshDeveloperMode() }
         if !enabled {
-            devPanel = nil
+            if selectedTab?.page?.isInspectorVisible == true { selectedTab?.page?.closeInspector() }
+            inspectorPanel = nil
             responsiveWidth = nil
         }
         showToast(enabled ? "Modo desarrollador activado en \(key)" : "Modo desarrollador desactivado en \(key)",
@@ -580,7 +588,7 @@ public final class Browser {
         tab.developerModeFor = { [weak self] url in self?.isDeveloperMode(url) ?? DeveloperMode.isLocalDevelopment(url) }
         tab.isConsoleVisible = { [weak self, weak tab] in
             guard let self, let tab else { return false }
-            return devPanel == .console && selectedTab?.id == tab.id
+            return inspectorPanel == .console && selectedTab?.id == tab.id && tab.page?.isInspectorVisible == true
         }
         tab.onRequestActivate = { [weak self, weak tab] in
             if let self, let tab { reveal(tab) }

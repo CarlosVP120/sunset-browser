@@ -326,13 +326,10 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     private var developerMode = false
     private var onConsoleMessage: (@MainActor (ConsoleMessage) -> Void)?
-    private var onNetworkRequest: (@MainActor (NetworkRequest) -> Void)?
 
-    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?,
-                          onRequest: (@MainActor (NetworkRequest) -> Void)?) {
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?) {
         developerMode = enabled
         onConsoleMessage = enabled ? onMessage : nil
-        onNetworkRequest = enabled ? onRequest : nil
         enableConsoleInPage()
     }
 
@@ -343,43 +340,61 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     func receiveConsole(_ body: Any) {
         guard developerMode, let body = body as? [String: Any] else { return }
-        if body["kind"] as? String == "net" {
-            guard let url = body["url"] as? String else { return }
-            onNetworkRequest?(NetworkRequest(
-                method: body["method"] as? String ?? "GET", url: url,
-                status: (body["status"] as? NSNumber)?.intValue ?? 0,
-                kind: (body["type"] as? String).flatMap(NetworkRequest.Kind.init(rawValue:)) ?? .other,
-                duration: (body["duration"] as? NSNumber)?.doubleValue ?? 0,
-                size: (body["size"] as? NSNumber)?.intValue ?? 0,
-                mimeType: (body["mime"] as? String).flatMap { $0.isEmpty ? nil : $0 },
-                isCached: (body["cached"] as? Bool) ?? false,
-                error: body["error"] as? String,
-                isNewDocument: (body["newDocument"] as? Bool) ?? false
-            ))
-            return
-        }
         guard let text = body["text"] as? String else { return }
         let level = (body["level"] as? String).flatMap(ConsoleMessage.Level.init(rawValue:)) ?? .log
         onConsoleMessage?(ConsoleMessage(level: level, text: text, source: body["source"] as? String))
     }
 
-    func evaluateInConsole(_ code: String) async -> String {
-        do {
-            let result = try await webView.callAsyncJavaScript(ConsoleScript.evaluationBody, arguments: ["code": code],
-                                                               contentWorld: .page)
-            return (result as? String) ?? String(describing: result ?? "undefined")
-        } catch {
-            return "⚠︎ \(error.localizedDescription)"
-        }
+    // MARK: Inspector web
+
+    private var inspector: NSObject? { webView.value(forKey: "_inspector") as? NSObject }
+
+    private func call(_ selector: String, on object: NSObject?) {
+        let selector = NSSelectorFromString(selector)
+        if let object, object.responds(to: selector) { object.perform(selector) }
+    }
+
+    var isInspectorVisible: Bool {
+        (inspector?.value(forKey: "isVisible") as? Bool) ?? false
     }
 
     /// El inspector web de WebKit (el de Safari), acoplado bajo la página como las DevTools de Arc.
-    func showInspector(selectingElement: Bool) {
-        guard let inspector = webView.value(forKey: "_inspector") as? NSObject else { return }
-        if inspector.responds(to: NSSelectorFromString("show")) { inspector.perform(NSSelectorFromString("show")) }
+    func showInspector(_ panel: InspectorPanel) {
+        let inspector = inspector
+        switch panel {
+        case .console:
+            call("showConsole", on: inspector)
+        case .elements:
+            call("show", on: inspector)
+        case .pickElement:
+            call("show", on: inspector)
+            if (inspector?.value(forKey: "isElementSelectionActive") as? Bool) != true {
+                call("toggleElementSelection", on: inspector)
+            }
+        case .network:
+            call("show", on: inspector)
+            selectNetworkTab(attempts: 20)
+        }
+    }
 
-        if selectingElement, inspector.responds(to: NSSelectorFromString("toggleElementSelection")) {
-            inspector.perform(NSSelectorFromString("toggleElementSelection"))
+    func closeInspector() {
+        call("close", on: inspector)
+    }
+
+    /// WebKit no tiene "mostrar Red": se le pide a la propia interfaz del inspector (su web)
+    /// cuando termina de cargar.
+    private func selectNetworkTab(attempts: Int) {
+        guard attempts > 0 else { return }
+        guard let frontend = inspector?.value(forKey: "inspectorWebView") as? WKWebView else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.selectNetworkTab(attempts: attempts - 1) }
+            return
+        }
+        frontend.evaluateJavaScript("typeof WI !== 'undefined' && WI.showNetworkTab ? (WI.showNetworkTab(), true) : false") { [weak self] result, _ in
+            MainActor.assumeIsolated {
+                if (result as? Bool) != true {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self?.selectNetworkTab(attempts: attempts - 1) }
+                }
+            }
         }
     }
 

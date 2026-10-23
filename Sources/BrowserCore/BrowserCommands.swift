@@ -278,10 +278,10 @@ extension Browser {
         case .printPage: tab?.page?.printPage()
         case .capturePage: capturePage()
         case .toggleDeveloperMode: toggleDeveloperMode()
-        case .toggleConsole: toggleDevPanel(.console)
-        case .toggleNetwork: toggleDevPanel(.network)
-        case .inspectElement: tab?.page?.showInspector(selectingElement: true)
-        case .openWebInspector: tab?.page?.showInspector(selectingElement: false)
+        case .toggleConsole: toggleInspector(.console)
+        case .toggleNetwork: toggleInspector(.network)
+        case .inspectElement: toggleInspector(.pickElement)
+        case .openWebInspector: toggleInspector(.elements)
         case .toggleResponsive: responsiveWidth = responsiveWidth == nil ? 390 : nil
         case .viewSource: viewSource()
         case .pictureInPicture:

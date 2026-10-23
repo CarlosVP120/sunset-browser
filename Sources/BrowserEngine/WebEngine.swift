@@ -79,19 +79,27 @@ public protocol WebPage: AnyObject {
 
     // Modo desarrollador
     /// Activa la consola de la página: `onMessage` recibe lo que escribe (y lo que tenía guardado).
-    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?,
-                          onRequest: (@MainActor (NetworkRequest) -> Void)?)
-    /// Ejecuta JavaScript escrito en la consola de Sunset y devuelve el resultado como texto.
-    func evaluateInConsole(_ code: String) async -> String
-    /// Abre el inspector web (Elementos, Red, Fuentes…); con `selectingElement`, para elegir un elemento.
-    func showInspector(selectingElement: Bool)
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?)
+    /// Abre las herramientas de desarrollo del motor (en WebKit, el inspector web de Safari;
+    /// en Chromium serían sus DevTools) en la pestaña indicada.
+    func showInspector(_ panel: InspectorPanel)
+    func closeInspector()
+    /// Si las herramientas están abiertas.
+    var isInspectorVisible: Bool { get }
+}
+
+/// Pestaña de las herramientas de desarrollo.
+public enum InspectorPanel: Sendable {
+    case elements, console, network
+    /// Elementos, con el selector activo para elegir uno en la página.
+    case pickElement
 }
 
 public extension WebPage {
-    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?,
-                          onRequest: (@MainActor (NetworkRequest) -> Void)?) {}
-    func evaluateInConsole(_ code: String) async -> String { "" }
-    func showInspector(selectingElement: Bool) {}
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?) {}
+    func showInspector(_ panel: InspectorPanel) {}
+    func closeInspector() {}
+    var isInspectorVisible: Bool { false }
 }
 
 /// Controles del reproductor de la barra lateral.
