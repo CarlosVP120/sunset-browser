@@ -34,6 +34,29 @@ public enum DeveloperMode {
     }
 }
 
+/// Panel bajo la página en modo desarrollador.
+public enum DevPanel: String, Sendable, CaseIterable {
+    case console, network
+}
+
+/// Peticiones de red de la página actual (las últimas 1000). Al cargar otra página se empieza de cero.
+public struct NetworkLog: Equatable, Sendable {
+    public private(set) var requests: [NetworkRequest] = []
+
+    static let limit = 1000
+
+    mutating func append(_ request: NetworkRequest) {
+        if request.isNewDocument { requests.removeAll() }
+        requests.append(request)
+        if requests.count > Self.limit { requests.removeFirst(requests.count - Self.limit) }
+    }
+
+    mutating func clear() { requests.removeAll() }
+
+    /// Bytes transferidos en total.
+    public var totalSize: Int { requests.reduce(0) { $0 + $1.size } }
+}
+
 /// Mensajes de consola guardados por pestaña (los últimos 500).
 public struct ConsoleLog: Equatable, Sendable {
     public private(set) var messages: [ConsoleMessage] = []

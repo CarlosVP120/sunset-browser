@@ -23,7 +23,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     case goHome
     case toggleSidebar, toggleToolbar, showLibrary, showDownloads, showShortcuts, importFromArc
     // Modo desarrollador
-    case toggleDeveloperMode, toggleConsole, inspectElement, openWebInspector, toggleResponsive
+    case toggleDeveloperMode, toggleConsole, toggleNetwork, inspectElement, openWebInspector, toggleResponsive
 
     public var title: String {
         switch self {
@@ -36,6 +36,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "Capturar página"
         case .toggleDeveloperMode: "Activar o desactivar modo desarrollador en este sitio"
         case .toggleConsole: "Mostrar u ocultar la consola"
+        case .toggleNetwork: "Mostrar u ocultar el panel de red"
         case .inspectElement: "Inspeccionar elemento"
         case .openWebInspector: "Abrir el inspector web"
         case .toggleResponsive: "Vista móvil"
@@ -93,6 +94,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "camera.viewfinder"
         case .toggleDeveloperMode: "hammer"
         case .toggleConsole: "terminal"
+        case .toggleNetwork: "globe"
         case .inspectElement: "scope"
         case .openWebInspector: "wrench.and.screwdriver"
         case .toggleResponsive: "iphone"
@@ -143,6 +145,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         switch self {
         case .copyURL: "⇧⌘C"
         case .toggleConsole: "⌥⌘J"
+        case .toggleNetwork: "⌥⌘E"
         case .openWebInspector: "⌥⌘I"
         case .inspectElement: "⌥⌘C"
         case .toggleResponsive: "⇧⌘M"
@@ -181,6 +184,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "capture screenshot captura pantalla"
         case .toggleDeveloperMode: "developer mode modo desarrollador dev localhost programar"
         case .toggleConsole: "console consola logs errores devtools"
+        case .toggleNetwork: "network panel red peticiones requests fetch xhr devtools"
         case .inspectElement: "inspect element inspeccionar elemento devtools"
         case .openWebInspector: "web inspector devtools herramientas desarrollo network red"
         case .toggleResponsive: "responsive mobile movil móvil iphone tamaño"
@@ -237,7 +241,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
              .clearSiteCookiesAndRefresh, .clearSiteCacheAndRefresh, .closeTab, .duplicateTab, .renameTab,
              .togglePin, .addToFavorites, .toggleDeveloperMode, .openWebInspector, .inspectElement:
             return tab?.url != nil && tab?.isHome == false
-        case .toggleConsole, .toggleResponsive:
+        case .toggleConsole, .toggleNetwork, .toggleResponsive:
             return tab?.isDeveloperMode == true
         case .pictureInPicture:
             return tab?.media?.hasVideo == true
@@ -274,7 +278,8 @@ extension Browser {
         case .printPage: tab?.page?.printPage()
         case .capturePage: capturePage()
         case .toggleDeveloperMode: toggleDeveloperMode()
-        case .toggleConsole: showsConsole.toggle()
+        case .toggleConsole: toggleDevPanel(.console)
+        case .toggleNetwork: toggleDevPanel(.network)
         case .inspectElement: tab?.page?.showInspector(selectingElement: true)
         case .openWebInspector: tab?.page?.showInspector(selectingElement: false)
         case .toggleResponsive: responsiveWidth = responsiveWidth == nil ? 390 : nil

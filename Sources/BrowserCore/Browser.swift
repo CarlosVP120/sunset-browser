@@ -33,9 +33,14 @@ public final class Browser {
     public var spaceEditor: SpaceEditorRequest?
     /// Ventana para ordenar, renombrar y borrar espacios.
     public var showsSpaceManager = false
-    /// Consola del modo desarrollador abierta bajo la página.
-    public var showsConsole = false {
-        didSet { if showsConsole { selectedTab?.markConsoleSeen() } }
+    /// Panel del modo desarrollador abierto bajo la página (consola o red).
+    public var devPanel: DevPanel? {
+        didSet { if devPanel == .console { selectedTab?.markConsoleSeen() } }
+    }
+
+    /// Abre ese panel, o lo cierra si ya estaba abierto (los botones de la barra).
+    public func toggleDevPanel(_ panel: DevPanel) {
+        devPanel = devPanel == panel ? nil : panel
     }
     /// Vista móvil del modo desarrollador: ancho simulado de la página (nil = ancho completo).
     public var responsiveWidth: Double?
@@ -201,7 +206,7 @@ public final class Browser {
         defaults.set(developerSites, forKey: "developerSites")
         for tab in allTabs { tab.refreshDeveloperMode() }
         if !enabled {
-            showsConsole = false
+            devPanel = nil
             responsiveWidth = nil
         }
         showToast(enabled ? "Modo desarrollador activado en \(key)" : "Modo desarrollador desactivado en \(key)",
@@ -575,7 +580,7 @@ public final class Browser {
         tab.developerModeFor = { [weak self] url in self?.isDeveloperMode(url) ?? DeveloperMode.isLocalDevelopment(url) }
         tab.isConsoleVisible = { [weak self, weak tab] in
             guard let self, let tab else { return false }
-            return showsConsole && selectedTab?.id == tab.id
+            return devPanel == .console && selectedTab?.id == tab.id
         }
         tab.onRequestActivate = { [weak self, weak tab] in
             if let self, let tab { reveal(tab) }

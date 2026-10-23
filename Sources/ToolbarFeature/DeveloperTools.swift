@@ -83,7 +83,7 @@ struct DeveloperToolbarButtons: View {
                 .nativeMenuOnClick { responsiveMenu }
                 .tooltip("Vista móvil")
 
-            Button { browser.showsConsole.toggle() } label: {
+            Button { browser.toggleDevPanel(.console) } label: {
                 Image(systemName: "terminal")
                     .overlay(alignment: .topTrailing) {
                         if tab.console.unseenErrors > 0 {
@@ -98,13 +98,13 @@ struct DeveloperToolbarButtons: View {
                         }
                     }
             }
-            .tooltip(browser.showsConsole ? "Ocultar consola" : "Consola", shortcut: "⌥⌘J")
+            .background(Circle().fill(Color.primary.opacity(browser.devPanel == .console ? 0.12 : 0)))
+            .tooltip(browser.devPanel == .console ? "Ocultar consola" : "Consola", shortcut: "⌥⌘J")
 
-            Image(systemName: "globe")
-                .frame(width: 26, height: 26)
-                .contentShape(Rectangle())
-                .nativeMenuOnClick { otherBrowsersMenu }
-                .tooltip("Abrir en otro navegador")
+            // Como en Arc: el mundo muestra u oculta el panel de red.
+            Button { browser.toggleDevPanel(.network) } label: { Image(systemName: "globe") }
+                .background(Circle().fill(Color.primary.opacity(browser.devPanel == .network ? 0.12 : 0)))
+                .tooltip(browser.devPanel == .network ? "Ocultar panel de red" : "Panel de red", shortcut: "⌥⌘E")
 
             Button { tab.page?.showInspector(selectingElement: true) } label: { Image(systemName: "scope") }
                 .tooltip("Inspeccionar elemento", shortcut: "⌥⌘C")
@@ -121,27 +121,13 @@ struct DeveloperToolbarButtons: View {
             }
         }
     }
-
-    /// Navegadores instalados, para probar el sitio en ellos.
-    private var otherBrowsersMenu: [MenuEntry] {
-        guard let url = tab.url else { return [] }
-        let candidates = ["com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox", "company.thebrowser.Browser",
-                          "com.brave.Browser", "com.microsoft.edgemac", "com.apple.SafariTechnologyPreview"]
-        let apps = candidates.compactMap { id in NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) }
-        guard !apps.isEmpty else { return [.button("No hay otros navegadores instalados", enabled: false) {}] }
-        return apps.map { app in
-            .button(FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")) {
-                NSWorkspace.shared.open([url], withApplicationAt: app, configuration: .init())
-            }
-        }
-    }
 }
 
 // MARK: - Consola
 
 /// Consola bajo la página: lo que escribe la página, sus errores, las peticiones que fallan, y
 /// una línea para ejecutar JavaScript. Para todo lo demás (Elementos, Red…), el inspector web.
-public struct ConsolePanel: View {
+struct ConsolePanel: View {
     let browser: Browser
     let tab: BrowserTab
     @State private var input = ""
@@ -152,11 +138,6 @@ public struct ConsolePanel: View {
 
     enum Filter: String, CaseIterable {
         case all = "Todo", errors = "Errores", warnings = "Avisos", logs = "Logs"
-    }
-
-    public init(browser: Browser, tab: BrowserTab) {
-        self.browser = browser
-        self.tab = tab
     }
 
     private var messages: [ConsoleMessage] {
@@ -170,7 +151,7 @@ public struct ConsolePanel: View {
         }
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             header
             Divider().opacity(0.5)
@@ -207,8 +188,7 @@ public struct ConsolePanel: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: "terminal").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-            Text("Consola").font(.system(size: 12, weight: .semibold))
+            PanelTabs(browser: browser, tab: tab)
             Picker("", selection: $filter) {
                 ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
@@ -224,11 +204,7 @@ public struct ConsolePanel: View {
             Button("Inspector web") { tab.page?.showInspector(selectingElement: false) }
                 .buttonStyle(.borderless)
                 .font(.system(size: 11.5))
-            Button { withAnimation(Theme.spring) { browser.showsConsole = false } } label: {
-                Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-            }
-            .buttonStyle(.borderless)
-            .tooltip("Cerrar consola", shortcut: "⌥⌘J")
+            PanelCloseButton(browser: browser)
         }
         .padding(.horizontal, 12)
         .frame(height: 32)
@@ -319,5 +295,262 @@ private struct ConsoleRow: View {
         .padding(.vertical, 4)
         .background(message.level == .error ? Color.red.opacity(0.08) : message.level == .warn ? Color.yellow.opacity(0.06) : .clear)
         .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.05)).frame(height: 1) }
+    }
+}
+
+// MARK: - Panel (Consola · Red)
+
+/// El panel bajo la página en modo desarrollador: Consola o Red.
+public struct DevToolsPanel: View {
+    let browser: Browser
+    let tab: BrowserTab
+    let panel: DevPanel
+
+    public init(browser: Browser, tab: BrowserTab, panel: DevPanel) {
+        self.browser = browser
+        self.tab = tab
+        self.panel = panel
+    }
+
+    public var body: some View {
+        Group {
+            switch panel {
+            case .console: ConsolePanel(browser: browser, tab: tab)
+            case .network: NetworkPanel(browser: browser, tab: tab)
+            }
+        }
+        .background(Color(white: 0.11))
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+/// "Consola · Red", para cambiar de panel.
+private struct PanelTabs: View {
+    let browser: Browser
+    let tab: BrowserTab
+
+    var body: some View {
+        HStack(spacing: 2) {
+            item(.console, "Consola", count: tab.console.messages.count, alert: tab.console.unseenErrors > 0)
+            item(.network, "Red", count: tab.network.requests.count, alert: tab.network.requests.contains(where: \.isFailure))
+        }
+    }
+
+    private func item(_ panel: DevPanel, _ title: String, count: Int, alert: Bool) -> some View {
+        let isOn = browser.devPanel == panel
+        return Button { browser.devPanel = panel } label: {
+            HStack(spacing: 5) {
+                Text(title).font(.system(size: 12, weight: .semibold))
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(alert ? Color(red: 1, green: 0.5, blue: 0.5) : .secondary)
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.white.opacity(isOn ? 0.12 : 0)))
+            .foregroundStyle(isOn ? .primary : .secondary)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct PanelCloseButton: View {
+    let browser: Browser
+
+    var body: some View {
+        Button { withAnimation(Theme.spring) { browser.devPanel = nil } } label: {
+            Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
+        }
+        .buttonStyle(.borderless)
+        .tooltip("Cerrar panel")
+    }
+}
+
+// MARK: - Red
+
+/// Panel de red: cada petición de la página con su estado, tipo, tamaño y tiempo.
+struct NetworkPanel: View {
+    let browser: Browser
+    let tab: BrowserTab
+    @State private var filter: Filter = .all
+    @State private var query = ""
+
+    enum Filter: String, CaseIterable {
+        case all = "Todo", fetch = "Fetch/XHR", document = "Doc", js = "JS", css = "CSS", img = "Img", font = "Fuentes",
+             failed = "Errores"
+
+        func matches(_ request: NetworkRequest) -> Bool {
+            switch self {
+            case .all: true
+            case .fetch: request.kind == .fetch || request.kind == .xhr
+            case .document: request.kind == .document
+            case .js: request.kind == .js
+            case .css: request.kind == .css
+            case .img: request.kind == .img
+            case .font: request.kind == .font
+            case .failed: request.isFailure
+            }
+        }
+    }
+
+    private var requests: [NetworkRequest] {
+        tab.network.requests.filter { request in
+            filter.matches(request) && (query.isEmpty || request.url.localizedCaseInsensitiveContains(query))
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                PanelTabs(browser: browser, tab: tab)
+                Picker("", selection: $filter) {
+                    ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(maxWidth: 470)
+                TextField("Filtrar", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                    .frame(width: 130)
+                Spacer(minLength: 0)
+                Button("Limpiar") { tab.clearNetwork() }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11.5))
+                Button("Inspector web") { tab.page?.showInspector(selectingElement: false) }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11.5))
+                PanelCloseButton(browser: browser)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            Divider().opacity(0.5)
+            columnsHeader
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if requests.isEmpty {
+                            Text(tab.network.requests.isEmpty ? "Sin peticiones todavía. Recarga la página (⌘R) para verlas desde el principio."
+                                                              : "Nada con este filtro.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                        }
+                        ForEach(requests) { request in
+                            NetworkRow(browser: browser, request: request).id(request.id)
+                        }
+                    }
+                }
+                .onChange(of: tab.network.requests.last?.id) { _, last in
+                    if let last { proxy.scrollTo(last, anchor: .bottom) }
+                }
+            }
+            Divider().opacity(0.5)
+            summary
+        }
+    }
+
+    private var columnsHeader: some View {
+        HStack(spacing: 0) {
+            Text("Estado").frame(width: 58, alignment: .leading)
+            Text("Método").frame(width: 58, alignment: .leading)
+            Text("Nombre").frame(maxWidth: .infinity, alignment: .leading)
+            Text("Tipo").frame(width: 70, alignment: .leading)
+            Text("Tamaño").frame(width: 76, alignment: .trailing)
+            Text("Tiempo").frame(width: 70, alignment: .trailing)
+        }
+        .font(.system(size: 10.5, weight: .semibold))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .frame(height: 22)
+        .background(Color.white.opacity(0.03))
+    }
+
+    private var summary: some View {
+        let all = tab.network.requests
+        let failed = all.filter(\.isFailure).count
+        return HStack(spacing: 14) {
+            Text("\(all.count) peticiones")
+            Text(ByteCountFormatter.string(fromByteCount: Int64(tab.network.totalSize), countStyle: .file) + " transferidos")
+            if failed > 0 {
+                Text("\(failed) con error").foregroundStyle(Color(red: 1, green: 0.5, blue: 0.5))
+            }
+            Spacer()
+        }
+        .font(.system(size: 11).monospacedDigit())
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .frame(height: 24)
+    }
+}
+
+private struct NetworkRow: View {
+    let browser: Browser
+    let request: NetworkRequest
+    @State private var isHovering = false
+
+    private var statusColor: Color {
+        if request.isFailure { return Color(red: 1, green: 0.45, blue: 0.45) }
+        if request.status >= 300 { return Color(red: 1, green: 0.8, blue: 0.35) }
+        return Color(red: 0.55, green: 0.85, blue: 0.6)
+    }
+
+    private var statusText: String {
+        if request.error != nil { return "falló" }
+        if request.isCached { return "caché" }
+        return request.status == 0 ? "—" : "\(request.status)"
+    }
+
+    private var sizeText: String {
+        if request.isCached { return "caché" }
+        return request.size > 0 ? ByteCountFormatter.string(fromByteCount: Int64(request.size), countStyle: .file) : "—"
+    }
+
+    private var timeText: String {
+        request.duration >= 1000 ? String(format: "%.2f s", request.duration / 1000) : "\(Int(request.duration.rounded())) ms"
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(statusText).foregroundStyle(statusColor).frame(width: 58, alignment: .leading)
+            Text(request.method).foregroundStyle(.secondary).frame(width: 58, alignment: .leading)
+            Text(request.name)
+                .foregroundStyle(request.isFailure ? Color(red: 1, green: 0.55, blue: 0.55) : .primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(request.error.map { "\(request.url)\n\($0)" } ?? request.url)
+            Text(request.kind.rawValue).foregroundStyle(.secondary).frame(width: 70, alignment: .leading)
+            Text(sizeText).foregroundStyle(.secondary).frame(width: 76, alignment: .trailing)
+            Text(timeText).foregroundStyle(request.duration > 1000 ? Color(red: 1, green: 0.8, blue: 0.35) : .secondary)
+                .frame(width: 70, alignment: .trailing)
+        }
+        .font(.system(size: 11.5, design: .monospaced))
+        .padding(.horizontal, 12)
+        .frame(height: 22)
+        .background(request.isFailure ? Color.red.opacity(0.08) : Color.white.opacity(isHovering ? 0.05 : 0))
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        .nativeContextMenu {
+            [
+                .button("Abrir en una pestaña nueva") {
+                    if let url = URL(string: request.url) { browser.openTab(url) }
+                },
+                .button("Copiar URL") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(request.url, forType: .string)
+                },
+                .button("Copiar como cURL") {
+                    NSPasteboard.general.clearContents()
+                    let method = request.method == "GET" ? "" : "-X \(request.method) "
+                    NSPasteboard.general.setString("curl \(method)'\(request.url)'", forType: .string)
+                },
+            ]
+        }
     }
 }

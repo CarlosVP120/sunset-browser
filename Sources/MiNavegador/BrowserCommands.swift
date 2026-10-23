@@ -103,6 +103,9 @@ struct BrowserCommands: Commands {
             Button("Consola") { browser.perform(.toggleConsole) }
                 .keyboardShortcut("j", modifiers: [.command, .option])
                 .disabled(browser.selectedTab?.isDeveloperMode != true)
+            Button("Red") { browser.perform(.toggleNetwork) }
+                .keyboardShortcut("e", modifiers: [.command, .option])
+                .disabled(browser.selectedTab?.isDeveloperMode != true)
             Button("Inspeccionar elemento") { browser.perform(.inspectElement) }
                 .keyboardShortcut("c", modifiers: [.command, .option])
             Button("Inspector web") { browser.perform(.openWebInspector) }

@@ -43,6 +43,7 @@ struct ShortcutsView: View {
         ("Desarrollo", [
             ("Entrar o salir del modo desarrollador", "⌃D"),
             ("Consola", "⌥⌘J"),
+            ("Red", "⌥⌘E"),
             ("Inspeccionar elemento", "⌥⌘C"),
             ("Inspector web", "⌥⌘I"),
             ("Vista móvil", "⇧⌘M"),

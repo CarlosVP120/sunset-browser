@@ -32,6 +32,8 @@ public final class BrowserTab: Identifiable {
     public private(set) var isDeveloperMode = false
     /// Lo que la página escribió en la consola mientras estaba en modo desarrollador.
     public internal(set) var console = ConsoleLog()
+    /// Peticiones de red de la página (panel Red).
+    public internal(set) var network = NetworkLog()
     /// El navegador decide qué sitios van en modo desarrollador.
     @ObservationIgnored var developerModeFor: ((URL?) -> Bool)?
     /// Si la consola de esta pestaña está a la vista (sus errores no cuentan como "sin ver").
@@ -153,10 +155,12 @@ public final class BrowserTab: Identifiable {
         let enabled = developerModeFor?(url) ?? false
         guard force || enabled != isDeveloperMode else { return }
         isDeveloperMode = enabled
-        page?.setDeveloperMode(enabled) { [weak self] message in
+        page?.setDeveloperMode(enabled, onMessage: { [weak self] message in
             guard let self else { return }
             console.append(message, isVisible: isConsoleVisible?() ?? false)
-        }
+        }, onRequest: { [weak self] request in
+            self?.network.append(request)
+        })
     }
 
     /// Ejecuta algo escrito en la consola de Sunset y anota la orden y el resultado.
@@ -167,6 +171,7 @@ public final class BrowserTab: Identifiable {
     }
 
     public func clearConsole() { console.clear() }
+    public func clearNetwork() { network.clear() }
     public func markConsoleSeen() { console.markSeen() }
 
     /// Libera la página de memoria conservando la URL, el título y el historial.

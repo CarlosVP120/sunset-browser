@@ -326,10 +326,13 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     private var developerMode = false
     private var onConsoleMessage: (@MainActor (ConsoleMessage) -> Void)?
+    private var onNetworkRequest: (@MainActor (NetworkRequest) -> Void)?
 
-    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?) {
+    func setDeveloperMode(_ enabled: Bool, onMessage: (@MainActor (ConsoleMessage) -> Void)?,
+                          onRequest: (@MainActor (NetworkRequest) -> Void)?) {
         developerMode = enabled
         onConsoleMessage = enabled ? onMessage : nil
+        onNetworkRequest = enabled ? onRequest : nil
         enableConsoleInPage()
     }
 
@@ -339,7 +342,23 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     }
 
     func receiveConsole(_ body: Any) {
-        guard developerMode, let body = body as? [String: Any], let text = body["text"] as? String else { return }
+        guard developerMode, let body = body as? [String: Any] else { return }
+        if body["kind"] as? String == "net" {
+            guard let url = body["url"] as? String else { return }
+            onNetworkRequest?(NetworkRequest(
+                method: body["method"] as? String ?? "GET", url: url,
+                status: (body["status"] as? NSNumber)?.intValue ?? 0,
+                kind: (body["type"] as? String).flatMap(NetworkRequest.Kind.init(rawValue:)) ?? .other,
+                duration: (body["duration"] as? NSNumber)?.doubleValue ?? 0,
+                size: (body["size"] as? NSNumber)?.intValue ?? 0,
+                mimeType: (body["mime"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                isCached: (body["cached"] as? Bool) ?? false,
+                error: body["error"] as? String,
+                isNewDocument: (body["newDocument"] as? Bool) ?? false
+            ))
+            return
+        }
+        guard let text = body["text"] as? String else { return }
         let level = (body["level"] as? String).flatMap(ConsoleMessage.Level.init(rawValue:)) ?? .log
         onConsoleMessage?(ConsoleMessage(level: level, text: text, source: body["source"] as? String))
     }
