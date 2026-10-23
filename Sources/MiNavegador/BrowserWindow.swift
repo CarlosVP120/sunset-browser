@@ -15,6 +15,9 @@ struct BrowserWindow: View {
     /// Barra lateral flotante al acercar el ratón al borde izquierdo con la barra oculta.
     @State private var isPeekingSidebar = false
     @State private var isResizingSidebar = false
+    /// Dónde está la página en la ventana (para no poner vidrio debajo).
+    @State private var contentFrame: CGRect = .zero
+    private static let windowSpace = "browser-window"
     @Environment(\.colorScheme) private var systemColorScheme
 
     var body: some View {
@@ -52,6 +55,10 @@ struct BrowserWindow: View {
                                 .fill(Color(white: 0.12))
                                 .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                         )
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: ContentFrameKey.self,
+                                                   value: proxy.frame(in: .named(Self.windowSpace)))
+                        })
                         .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .overlay(alignment: .top) {
                             ZoomIndicatorView(browser: browser).padding(.top, 10)
@@ -95,8 +102,12 @@ struct BrowserWindow: View {
                     .zIndex(10)
             }
         }
+        .coordinateSpace(name: Self.windowSpace)
+        .onPreferenceChange(ContentFrameKey.self) { contentFrame = $0 }
         .environment(\.spaceTheme, theme)
-        .background(SpaceBackground(theme: theme))
+        // Vidrio solo alrededor de la página (las esquinas redondeadas quedan sobre vidrio).
+        .background(SpaceBackground(theme: theme, opaqueRegion: contentFrame.insetBy(dx: Theme.cornerRadius,
+                                                                                      dy: Theme.cornerRadius)))
         .background(WindowConfigurator())
         .ignoresSafeArea()
         .animation(Theme.spring, value: browser.showsSidebar)
@@ -223,4 +234,12 @@ private struct WindowConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSView, context: Context) {}
+}
+
+private struct ContentFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
 }

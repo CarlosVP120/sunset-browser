@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Laboratorio de scroll</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font: 15px/1.5 -apple-system, sans-serif; background: #0e1116; color: #e8eaed; }
+  #panel { position: fixed; top: 16px; right: 16px; z-index: 10; width: 300px; padding: 16px 18px;
+           border-radius: 16px; background: rgba(20, 24, 32, .92); border: 1px solid rgba(255,255,255,.12);
+           box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  #panel h1 { font-size: 13px; margin: 0 0 10px; opacity: .6; text-transform: uppercase; letter-spacing: .08em; }
+  .metric { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0; }
+  .metric b { font: 600 26px -apple-system; font-variant-numeric: tabular-nums; }
+  .hint { font-size: 12px; opacity: .55; margin-top: 10px; }
+  button { margin-top: 10px; width: 100%; padding: 8px; border-radius: 10px; border: 0; font-weight: 600;
+           background: rgba(255,255,255,.12); color: inherit; cursor: pointer; }
+  .card { margin: 18px auto; max-width: 720px; padding: 22px 26px; border-radius: 18px;
+          background: linear-gradient(135deg, #1f2937, #111827); box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+  .card h2 { margin: 0 0 6px; font-size: 20px; }
+  .bar { height: 10px; border-radius: 5px; margin-top: 12px; background: linear-gradient(90deg, #3b82f6, #a855f7, #ef4444); }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>Durante el scroll</h1>
+  <div class="metric"><span>Pantalla</span><b id="hz">–</b></div>
+  <div class="metric"><span>FPS medios</span><b id="fps">–</b></div>
+  <div class="metric"><span>Fotogramas perdidos</span><b id="dropped">–</b></div>
+  <div class="metric"><span>Tirón más largo</span><b id="stall">–</b></div>
+  <div class="hint">Haz scroll arriba y abajo unos segundos (trackpad o rueda). Compara los números en
+    Arc y en MiNavegador, en la misma pantalla.</div>
+  <button id="reset">Reiniciar medición</button>
+</div>
+<div id="content"></div>
+<script>
+  // Contenido largo, con sombras y degradados (como una web real).
+  const content = document.getElementById('content');
+  for (let i = 1; i <= 300; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h2>Tarjeta ${i}</h2>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+      eiusmod tempor incididunt ut labore et dolore magna aliqua.<div class="bar" style="width:${20 + (i * 37) % 80}%"></div>`;
+    content.appendChild(card);
+  }
+
+  // Frecuencia de la pantalla: intervalo mediano entre fotogramas en reposo.
+  let idle = [], last = 0, hz = 0;
+  let scrolling = false, scrollTimer = 0;
+  let frames = [], totalTime = 0;
+
+  addEventListener('scroll', () => {
+    scrolling = true;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => scrolling = false, 120);
+  }, { passive: true });
+
+  function tick(now) {
+    if (last) {
+      const interval = now - last;
+      if (scrolling && interval < 500) { frames.push(interval); totalTime += interval; }
+      else if (!scrolling && idle.length < 240) { idle.push(interval); }
+    }
+    last = now;
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  setInterval(() => {
+    if (idle.length > 30) {
+      const sorted = [...idle].sort((a, b) => a - b);
+      hz = Math.round(1000 / sorted[Math.floor(sorted.length / 2)]);
+      document.getElementById('hz').textContent = hz + ' Hz';
+    }
+    if (frames.length > 10 && hz) {
+      const budget = 1000 / hz;
+      const fps = Math.round(frames.length * 1000 / totalTime);
+      const dropped = frames.reduce((n, f) => n + Math.max(0, Math.round(f / budget) - 1), 0);
+      const expected = frames.length + dropped;
+      document.getElementById('fps').textContent = fps;
+      document.getElementById('dropped').textContent = Math.round(dropped * 100 / expected) + ' %';
+      document.getElementById('stall').textContent = Math.round(Math.max(...frames)) + ' ms';
+    }
+  }, 250);
+
+  document.getElementById('reset').onclick = () => {
+    frames = []; totalTime = 0;
+    for (const id of ['fps', 'dropped', 'stall']) document.getElementById(id).textContent = '–';
+  };
+</script>
+</body>
+</html>

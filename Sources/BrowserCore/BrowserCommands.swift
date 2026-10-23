@@ -7,7 +7,7 @@ import BrowserEngine
 public enum BrowserCommand: String, CaseIterable, Sendable {
     // Página
     case copyURL, copyURLAsMarkdown, reload, forceReload, findInPage, printPage
-    case capturePage, viewSource, pauseAllMedia
+    case capturePage, viewSource, pauseAllMedia, pictureInPicture, toggleAutoPictureInPicture
     case zoomIn, zoomOut, resetZoom
     // Borrar y limpiar
     case clearSiteCookiesAndRefresh, clearSiteCacheAndRefresh
@@ -34,6 +34,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "Capturar página"
         case .viewSource: "Ver código fuente"
         case .pauseAllMedia: "Pausar todo el audio y vídeo"
+        case .pictureInPicture: "Imagen en imagen"
+        case .toggleAutoPictureInPicture: "Imagen en imagen automática al cambiar de pestaña"
         case .zoomIn: "Acercar"
         case .zoomOut: "Alejar"
         case .resetZoom: "Tamaño real"
@@ -84,6 +86,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "camera.viewfinder"
         case .viewSource: "chevron.left.forwardslash.chevron.right"
         case .pauseAllMedia: "speaker.slash"
+        case .pictureInPicture: "pip.enter"
+        case .toggleAutoPictureInPicture: "pip"
         case .zoomIn: "plus.magnifyingglass"
         case .zoomOut: "minus.magnifyingglass"
         case .resetZoom: "1.magnifyingglass"
@@ -129,6 +133,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .copyURLAsMarkdown: "⌥⇧⌘C"
         case .reload: "⌘R"
         case .forceReload: "⇧⌘R"
+        case .pictureInPicture: "⌃⌘P"
         case .findInPage: "⌘F"
         case .printPage: "⌘P"
         case .zoomIn: "⌘+"
@@ -159,6 +164,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .capturePage: "capture screenshot captura pantalla"
         case .viewSource: "view source html codigo developer"
         case .pauseAllMedia: "mute all tabs silenciar pausar audio video"
+        case .pictureInPicture: "picture in picture pip video flotante"
+        case .toggleAutoPictureInPicture: "picture in picture pip automatic automatico video"
         case .zoomIn: "zoom in mas grande"
         case .zoomOut: "zoom out mas pequeño"
         case .resetZoom: "zoom reset actual size 100"
@@ -208,6 +215,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
              .clearSiteCookiesAndRefresh, .clearSiteCacheAndRefresh, .closeTab, .duplicateTab, .renameTab,
              .togglePin, .addToFavorites:
             return tab?.url != nil && tab?.isHome == false
+        case .pictureInPicture:
+            return tab?.media?.hasVideo == true
         case .moveToToday:
             return tab.map { browser.activeSpace.isPinned($0) || browser.isFavorite($0) } ?? false
         case .archiveTabsBelow, .archiveTabsAbove, .archiveOtherTabs, .clearTodayTabs, .clearUnselectedTodayTabs:
@@ -241,6 +250,12 @@ extension Browser {
         case .printPage: tab?.page?.printPage()
         case .capturePage: capturePage()
         case .viewSource: viewSource()
+        case .pictureInPicture:
+            if let tab { tab.page?.setPictureInPicture(!(tab.media?.isInPictureInPicture ?? false)) }
+        case .toggleAutoPictureInPicture:
+            autoPictureInPicture.toggle()
+            showToast(autoPictureInPicture ? "Imagen en imagen automática activada"
+                                           : "Imagen en imagen automática desactivada", symbol: "pip")
         case .pauseAllMedia:
             for tab in allTabs { tab.page?.pauseAllMedia() }
             showToast("Audio y vídeo en pausa", symbol: "speaker.slash")

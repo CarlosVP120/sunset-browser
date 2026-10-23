@@ -104,6 +104,13 @@ struct BrowserCommands: Commands {
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             Button("Recarga forzada") { browser.selectedTab?.reloadIgnoringCache() }
                 .keyboardShortcut("r", modifiers: [.control, .shift])
+            Button("Imagen en imagen") { browser.perform(.pictureInPicture) }
+                .keyboardShortcut("p", modifiers: [.command, .control])
+            Toggle("Imagen en imagen automática", isOn: Binding(
+                get: { browser.autoPictureInPicture },
+                set: { browser.autoPictureInPicture = $0 }
+            ))
+            Divider()
             Button("Detener") { browser.selectedTab?.stopLoading() }
                 .keyboardShortcut(".")
                 .disabled(browser.selectedTab?.isLoading != true)

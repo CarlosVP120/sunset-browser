@@ -16,6 +16,8 @@ public final class BrowserTab: Identifiable {
     public private(set) var progress: Double = 1
     public private(set) var canGoBack = false
     public private(set) var canGoForward = false
+    /// Audio/vídeo principal de la página, si hay.
+    public private(set) var media: MediaState?
     /// La página en memoria; `nil` mientras la pestaña está hibernada.
     public private(set) var page: WebPage?
     public private(set) var lastActiveAt = Date()
@@ -30,6 +32,8 @@ public final class BrowserTab: Identifiable {
     @ObservationIgnored var onRequestActivate: (() -> Void)?
     @ObservationIgnored var onRequestClose: (() -> Void)?
     @ObservationIgnored var onRequestNewTab: ((URL) -> Void)?
+    /// Avisa de cambios de medios: (antes, ahora).
+    @ObservationIgnored var onMediaUpdate: ((MediaState?, MediaState?) -> Void)?
 
     init(
         id: UUID = UUID(),
@@ -46,6 +50,11 @@ public final class BrowserTab: Identifiable {
     }
 
     public var isHibernated: Bool { page == nil }
+
+    /// Suena algo o está en PiP: no se hiberna (no se te corta la música).
+    public var hasActiveMedia: Bool {
+        media?.isPlaying == true || media?.isInPictureInPicture == true
+    }
 
     /// Si la pestaña muestra la página Inicio.
     public var isHome: Bool { HomePage.isHome(url) }
@@ -69,6 +78,7 @@ public final class BrowserTab: Identifiable {
         page.onRequestActivate = { [weak self] in self?.onRequestActivate?() }
         page.onRequestClose = { [weak self] in self?.onRequestClose?() }
         page.onRequestNewTab = { [weak self] url in self?.onRequestNewTab?(url) }
+        page.onMediaChange = { [weak self] state in self?.updateMedia(state) }
         if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
@@ -87,8 +97,10 @@ public final class BrowserTab: Identifiable {
         page.stopLoading()
         page.willClose()
         page.onChange = nil
+        page.onMediaChange = nil
         self.page = nil
         isLoading = false
+        updateMedia(nil)
     }
 
     /// Descarta la página por completo (sin guardar historial): al volver, se carga de cero.
@@ -118,6 +130,13 @@ public final class BrowserTab: Identifiable {
     /// Recarga forzada, sin caché (⇧⌘R).
     public func reloadIgnoringCache() {
         if let page { page.reloadIgnoringCache() } else { wake() }
+    }
+
+    func updateMedia(_ state: MediaState?) {
+        let old = media
+        guard old != state else { return }
+        media = state
+        onMediaUpdate?(old, state)
     }
 
     private func apply(_ snapshot: WebPageSnapshot) {

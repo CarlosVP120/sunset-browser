@@ -88,6 +88,16 @@ public struct SidebarView: View {
                 }
             }
 
+            // Reproductores de lo que suena en otras pestañas (como en Arc).
+            VStack(spacing: 6) {
+                ForEach(browser.backgroundMediaTabs.prefix(2)) { tab in
+                    MediaPlayerCard(browser: browser, tab: tab)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .padding(.top, browser.backgroundMediaTabs.isEmpty ? 0 : 6)
+            .animation(Theme.spring, value: browser.backgroundMediaTabs.map(\.id))
+
             BottomBar(browser: browser, libraryButton: libraryButton)
         }
         .padding(.horizontal, 8)

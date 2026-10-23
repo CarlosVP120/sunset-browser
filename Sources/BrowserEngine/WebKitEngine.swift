@@ -9,6 +9,8 @@ public final class WebKitEngine: WebEngine {
 
     /// Descargas de todas las pestañas (la Librería las muestra).
     public let downloads = DownloadManager()
+    /// Reparte los mensajes de medios de las páginas a cada pestaña.
+    private let mediaRouter = MediaMessageRouter()
 
     public init() {
         configuration = WKWebViewConfiguration()
@@ -16,6 +18,11 @@ public final class WebKitEngine: WebEngine {
         configuration.websiteDataStore = .default()
         // Scroll a la frecuencia real de la pantalla (no a ~60 fps) y rueda del ratón animada.
         WebKitFeatures.applySmoothScrolling(to: configuration.preferences)
+        // Seguimiento de audio y vídeo de cada página (PiP automático y reproductor lateral).
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
+        configuration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
 
         if #available(macOS 15.4, *) {
             let host = WebExtensionsHost()
@@ -36,7 +43,9 @@ public final class WebKitEngine: WebEngine {
     private var profileConfigurations: [UUID: WKWebViewConfiguration] = [:]
 
     public func makePage(profile: UUID?) -> WebPage {
-        WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads)
+        let page = WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads)
+        mediaRouter.register(page)
+        return page
     }
 
     private func configuration(for profile: UUID?) -> WKWebViewConfiguration {
@@ -45,6 +54,12 @@ public final class WebKitEngine: WebEngine {
         let profileConfiguration = configuration.copy() as! WKWebViewConfiguration
         profileConfiguration.websiteDataStore = WKWebsiteDataStore(forIdentifier: profile)
         WebKitFeatures.applySmoothScrolling(to: profileConfiguration.preferences)
+        if profileConfiguration.userContentController !== configuration.userContentController {
+            profileConfiguration.userContentController.addUserScript(
+                WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
+            profileConfiguration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
+        }
         profileConfigurations[profile] = profileConfiguration
         return profileConfiguration
     }
@@ -147,7 +162,14 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         if #available(macOS 15.4, *) { (extensionsHost as? WebExtensionsHost)?.didOpen(self) }
     }
 
-    func load(_ url: URL) { webView.load(URLRequest(url: url)) }
+    func load(_ url: URL) {
+        if url.isFileURL {
+            // Archivos locales: WebKit necesita permiso de lectura sobre su carpeta.
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            webView.load(URLRequest(url: url))
+        }
+    }
     func restore(interactionState: Any) { webView.interactionState = interactionState }
     func goBack() { webView.goBack() }
     func goForward() { webView.goForward() }
@@ -173,6 +195,37 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     func pauseAllMedia() {
         webView.pauseAllMediaPlayback()
+    }
+
+    // MARK: Audio y vídeo
+
+    var onMediaChange: (@MainActor (MediaState?) -> Void)?
+
+    func setPictureInPicture(_ enabled: Bool) {
+        webView.evaluateJavaScript("window.__miNavegadorMedia?.setPictureInPicture(\(enabled))")
+    }
+
+    func mediaCommand(_ command: MediaCommand) {
+        let call = switch command {
+        case .togglePlayback: "togglePlayback()"
+        case .pause: "pause()"
+        case .toggleMute: "toggleMute()"
+        case .seek(let seconds): "seek(\(seconds))"
+        }
+        webView.evaluateJavaScript("window.__miNavegadorMedia?.\(call)")
+    }
+
+    func receiveMediaMessage(_ body: Any) {
+        guard let state = body as? [String: Any] else {
+            onMediaChange?(nil)
+            return
+        }
+        onMediaChange?(MediaState(
+            isPlaying: state["playing"] as? Bool ?? false,
+            isMuted: state["muted"] as? Bool ?? false,
+            hasVideo: state["video"] as? Bool ?? false,
+            isInPictureInPicture: state["pip"] as? Bool ?? false
+        ))
     }
 
     func printPage() {
@@ -255,5 +308,22 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
             canGoForward: webView.canGoForward
         ))
         if #available(macOS 15.4, *) { (extensionsHost as? WebExtensionsHost)?.didChange(self) }
+    }
+}
+
+/// Recibe los mensajes del script de medios y los entrega a la página que los envió.
+@MainActor
+final class MediaMessageRouter: NSObject, WKScriptMessageHandler {
+    private struct WeakPage { weak var page: WebKitPage? }
+    private var pages: [ObjectIdentifier: WeakPage] = [:]
+
+    func register(_ page: WebKitPage) {
+        pages = pages.filter { $0.value.page != nil }
+        pages[ObjectIdentifier(page.webView)] = WeakPage(page: page)
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let webView = message.webView, let page = pages[ObjectIdentifier(webView)]?.page else { return }
+        page.receiveMediaMessage(message.body)
     }
 }

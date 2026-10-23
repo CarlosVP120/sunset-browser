@@ -70,6 +70,18 @@ public protocol WebPage: AnyObject {
     func pageSource() async -> String?
     /// Pausa audio y vídeo de la página.
     func pauseAllMedia()
+
+    /// Cambios en el audio/vídeo principal de la página (`nil` si no hay ninguno).
+    var onMediaChange: (@MainActor (MediaState?) -> Void)? { get set }
+    /// Pone o quita el vídeo principal en imagen en imagen (PiP).
+    func setPictureInPicture(_ enabled: Bool)
+    func mediaCommand(_ command: MediaCommand)
+}
+
+/// Controles del reproductor de la barra lateral.
+public enum MediaCommand: Sendable {
+    case togglePlayback, pause, toggleMute
+    case seek(Double)
 }
 
 /// Fábrica de páginas. Cambiar de motor (WebKit → Chromium/CEF) es cambiar esta pieza.

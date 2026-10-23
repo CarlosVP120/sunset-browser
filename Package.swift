@@ -15,7 +15,7 @@ let package = Package(
         // Sistema de diseño compartido (equivalente a ARCUI): colores, vidrio, iconos.
         .target(name: "BrowserUI", dependencies: ["BrowserCore"]),
         // Barra lateral (equivalente a ARC_StorableSidebar / ARC_SidebarPlusButton).
-        .target(name: "SidebarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
+        .target(name: "SidebarFeature", dependencies: ["BrowserEngine", "BrowserCore", "BrowserUI"]),
         // Barra superior con navegación y dirección.
         .target(name: "ToolbarFeature", dependencies: ["BrowserCore", "BrowserUI"]),
         // Command Bar (equivalente a ARC_CommandBar): buscar, abrir y ejecutar acciones.

@@ -18,6 +18,13 @@ public final class Browser {
     public var librarySection: LibrarySection = .downloads
     /// Pestaña que se está renombrando en la barra lateral.
     public var renamingTabID: BrowserTab.ID?
+    /// Al cambiar de pestaña, el vídeo que suena pasa a imagen en imagen (como Arc).
+    public var autoPictureInPicture: Bool {
+        didSet { defaults.set(autoPictureInPicture, forKey: "autoPictureInPicture") }
+    }
+    /// Reproductores que el usuario quitó de la barra lateral (vuelven si suena otra vez).
+    public internal(set) var dismissedMediaTabIDs: Set<BrowserTab.ID> = []
+    @ObservationIgnored private var lastVisibleTabID: BrowserTab.ID?
     /// Ventana con la lista de atajos de teclado.
     public var showsShortcuts = false
     /// Aviso breve abajo ("Enlace copiado").
@@ -71,6 +78,7 @@ public final class Browser {
         history = History(fileURL: historyFileURL)
         showsToolbar = defaults.object(forKey: "showsToolbar") as? Bool ?? true
         sidebarWidth = defaults.object(forKey: "sidebarWidth") as? Double ?? 240
+        autoPictureInPicture = defaults.object(forKey: "autoPictureInPicture") as? Bool ?? true
         activeSpaceID = UUID()
 
         if let snapshot = store?.load() ?? (importFromArc ? try? ArcImporter.load() : nil) {
@@ -387,7 +395,7 @@ public final class Browser {
 
     private func hibernate(where shouldHibernate: (BrowserTab) -> Bool) {
         let visibleID = selectedTab?.id
-        for tab in allTabs where tab.id != visibleID && !tab.isHibernated && shouldHibernate(tab) {
+        for tab in allTabs where tab.id != visibleID && !tab.isHibernated && !tab.hasActiveMedia && shouldHibernate(tab) {
             tab.hibernate()
         }
     }
@@ -446,6 +454,9 @@ public final class Browser {
             if let self, let tab { close(tab) }
         }
         tab.onRequestNewTab = { [weak self] url in self?.openTab(url) }
+        tab.onMediaUpdate = { [weak self, weak tab] old, new in
+            if let self, let tab { mediaChanged(tab, from: old, to: new) }
+        }
         return tab
     }
 
@@ -495,11 +506,31 @@ public final class Browser {
         syncActivePage()
     }
 
-    /// Avisa a cada página de si es la visible (lo necesitan las extensiones).
+    /// Avisa a cada página de si es la visible (lo necesitan las extensiones) y, al cambiar de
+    /// pestaña, pasa a PiP el vídeo que se deja sonando y saca de PiP el de la pestaña a la que vuelves.
     private func syncActivePage() {
         let selectedID = selectedTab?.id
         for tab in allTabs {
             tab.page?.setActive(tab.id == selectedID)
+        }
+        guard lastVisibleTabID != selectedID else { return }
+        if autoPictureInPicture, let previousID = lastVisibleTabID, let previous = tab(withID: previousID),
+           let media = previous.media, media.isPlaying, media.hasVideo, !media.isInPictureInPicture {
+            previous.page?.setPictureInPicture(true)
+        }
+        if let current = selectedTab, current.media?.isInPictureInPicture == true {
+            current.page?.setPictureInPicture(false)
+        }
+        lastVisibleTabID = selectedID
+    }
+
+    /// Reacciona a los cambios de medios de una pestaña.
+    private func mediaChanged(_ tab: BrowserTab, from old: MediaState?, to new: MediaState?) {
+        if new?.isPlaying == true { dismissedMediaTabIDs.remove(tab.id) }
+        // Botón "volver a la pestaña" del PiP: sale de PiP y sigue sonando.
+        if old?.isInPictureInPicture == true, new?.isInPictureInPicture == false, new?.isPlaying == true,
+           selectedTab?.id != tab.id {
+            reveal(tab)
         }
     }
 

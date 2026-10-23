@@ -1,4 +1,5 @@
 import AppKit
+import BrowserEngine
 
 // Acciones de los atajos de Arc y del menú de cada espacio.
 extension Browser {
@@ -12,6 +13,31 @@ extension Browser {
         } else {
             openTab(HomePage.url)
         }
+    }
+
+    // MARK: - Audio y vídeo
+
+    /// Pestañas con audio/vídeo que no estás viendo: las muestra el reproductor de la barra lateral.
+    public var backgroundMediaTabs: [BrowserTab] {
+        let selectedID = selectedTab?.id
+        return allTabs.filter { tab in
+            tab.id != selectedID && tab.media != nil && !dismissedMediaTabIDs.contains(tab.id)
+        }
+    }
+
+    public func setPictureInPicture(_ enabled: Bool, for tab: BrowserTab) {
+        tab.page?.setPictureInPicture(enabled)
+    }
+
+    public func mediaCommand(_ command: MediaCommand, for tab: BrowserTab) {
+        tab.page?.mediaCommand(command)
+    }
+
+    /// Quita el reproductor de la barra lateral: pausa y sale de PiP.
+    public func dismissMedia(of tab: BrowserTab) {
+        tab.page?.mediaCommand(.pause)
+        tab.page?.setPictureInPicture(false)
+        dismissedMediaTabIDs.insert(tab.id)
     }
 
     // MARK: - Buscar en la página (⌘F, ⌘G, ⇧⌘G)

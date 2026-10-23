@@ -30,6 +30,11 @@ final class FakePage: WebPage {
     func snapshot() async -> NSImage? { nil }
     func pageSource() async -> String? { "<html></html>" }
     func pauseAllMedia() {}
+    var onMediaChange: (@MainActor (MediaState?) -> Void)?
+    private(set) var pictureInPicture: [Bool] = []
+    private(set) var mediaCommands: [MediaCommand] = []
+    func setPictureInPicture(_ enabled: Bool) { pictureInPicture.append(enabled) }
+    func mediaCommand(_ command: MediaCommand) { mediaCommands.append(command) }
     func stopLoading() {}
 }
 

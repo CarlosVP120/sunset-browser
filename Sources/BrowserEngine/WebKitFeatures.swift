@@ -8,12 +8,15 @@ enum WebKitFeatures {
     static let preferNear60FPS = "PreferPageRenderingUpdatesNear60FPSEnabled"
     /// Anima cada paso de la rueda del ratón en vez de saltar línea a línea (como Chromium).
     static let scrollAnimator = "ScrollAnimatorEnabled"
+    /// Imagen en imagen: WebKit lo trae desactivado en apps que no son Safari.
+    static let pictureInPicture = "AllowsPictureInPictureMediaPlayback"
 
-    /// Aplica los ajustes de fluidez a unas preferencias de WebKit.
+    /// Aplica los ajustes de fluidez (y PiP) a unas preferencias de WebKit.
     @MainActor
     static func applySmoothScrolling(to preferences: WKPreferences) {
         set(preferNear60FPS, enabled: false, on: preferences)
         set(scrollAnimator, enabled: true, on: preferences)
+        set(pictureInPicture, enabled: true, on: preferences)
     }
 
     @MainActor

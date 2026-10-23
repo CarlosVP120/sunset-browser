@@ -28,14 +28,34 @@ public struct VisualEffectBlur: NSViewRepresentable {
 /// Fondo de la ventana como en Arc: vidrio translúcido, color (o degradado) del espacio y grano.
 public struct SpaceBackground: View {
     let theme: SpaceTheme
+    /// Zona tapada por la página (opaca). Ahí no se pone vidrio: el desenfoque del escritorio
+    /// se recalcula al recomponer la ventana, y bajo una página que hace scroll a 120–180 Hz
+    /// sería trabajo inútil en cada fotograma.
+    let opaqueRegion: CGRect?
 
-    public init(theme: SpaceTheme) {
+    public init(theme: SpaceTheme, opaqueRegion: CGRect? = nil) {
         self.theme = theme
+        self.opaqueRegion = opaqueRegion
     }
 
     public var body: some View {
         ZStack {
-            VisualEffectBlur(isDark: theme.isDark)
+            if let hole = opaqueRegion, hole.width > 0, hole.height > 0 {
+                GeometryReader { geometry in
+                    ZStack(alignment: .topLeading) {
+                        ForEach(Array(Self.glassRects(around: hole, in: geometry.size).enumerated()), id: \.offset) { _, rect in
+                            VisualEffectBlur(isDark: theme.isDark)
+                                .frame(width: rect.width, height: rect.height)
+                                .offset(x: rect.minX, y: rect.minY)
+                        }
+                        Color(theme.background.first ?? .navy)
+                            .frame(width: hole.width, height: hole.height)
+                            .offset(x: hole.minX, y: hole.minY)
+                    }
+                }
+            } else {
+                VisualEffectBlur(isDark: theme.isDark)
+            }
 
             // "translucencyStyle: light" de Arc: el color cubre casi todo, pero se intuye el escritorio.
             if theme.background.count > 1 {
@@ -55,6 +75,17 @@ public struct SpaceBackground: View {
             }
         }
         .animation(.easeInOut(duration: 0.35), value: theme)
+    }
+
+    /// Las franjas de vidrio alrededor de la zona opaca: izquierda, derecha, arriba y abajo.
+    static func glassRects(around hole: CGRect, in size: CGSize) -> [CGRect] {
+        let overlap: CGFloat = 1
+        return [
+            CGRect(x: 0, y: 0, width: hole.minX + overlap, height: size.height),
+            CGRect(x: hole.maxX - overlap, y: 0, width: size.width - hole.maxX + overlap, height: size.height),
+            CGRect(x: hole.minX, y: 0, width: hole.width, height: hole.minY + overlap),
+            CGRect(x: hole.minX, y: hole.maxY - overlap, width: hole.width, height: size.height - hole.maxY + overlap),
+        ].filter { $0.width > 0 && $0.height > 0 }
     }
 }
 
