@@ -119,6 +119,7 @@ struct BrowserWindow: View {
         .background(SpaceBackground(theme: theme, opaqueRegion: contentFrame.insetBy(dx: Theme.cornerRadius,
                                                                                       dy: Theme.cornerRadius)))
         .background(WindowConfigurator())
+        .onAppear { AnimationBenchmark.startIfRequested(browser: browser) }
         .ignoresSafeArea()
         .animation(Theme.spring, value: browser.showsSidebar)
         .animation(Theme.spring, value: browser.showsToolbar)

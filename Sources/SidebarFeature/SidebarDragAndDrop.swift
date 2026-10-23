@@ -195,7 +195,12 @@ private struct SidebarDropTargetModifier: ViewModifier {
         let dragZone = drag.hovered?.id == id ? drag.hovered?.zone : nil
         content
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(SidebarDrag.space)) } action: { register($0) }
-            .overlay(DropIndicator(zone: zone ?? dragZone, horizontal: horizontal))
+            // Solo existe mientras se arrastra algo encima (antes estaba siempre, invisible).
+            .overlay {
+                if let shown = zone ?? dragZone {
+                    DropIndicator(zone: shown, horizontal: horizontal)
+                }
+            }
             // Lo que llega desde fuera de la app (enlaces de otras apps).
             .onDrop(of: [.text, .url], delegate: LiveDropDelegate(box: box, zone: $zone, make: makeDelegate))
             .onDisappear { drag.unregister(id) }

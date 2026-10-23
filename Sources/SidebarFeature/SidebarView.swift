@@ -496,7 +496,30 @@ private struct FolderSection: View {
     @State private var isOverRow = false
     @State private var isOverPopover = false
     @State private var previewTask: Task<Void, Never>?
+    /// Cuántas filas de la carpeta existen ahora (se crean por tandas al abrir).
+    @State private var mountedCount = 0
     @Environment(SidebarDrag.self) private var drag
+
+    /// Altura de la carpeta abierta: la suma de sus filas (cada una mide siempre lo mismo).
+    private var expandedHeight: CGFloat {
+        guard !folder.tabs.isEmpty else { return 0 }
+        let rows = folder.tabs.reduce(CGFloat(0)) { $0 + ($1.isDeveloperMode ? 44 : Theme.rowHeight) }
+        return rows + CGFloat(folder.tabs.count - 1) * 2
+    }
+
+    /// Al abrir, crea las filas de 6 en 6 en cada fotograma; al cerrar, las suelta cuando termina
+    /// la animación (si sigue cerrada).
+    private func mountRows() async {
+        if folder.isExpanded {
+            while mountedCount < folder.tabs.count, !Task.isCancelled {
+                mountedCount = min(folder.tabs.count, mountedCount + 6)
+                try? await Task.sleep(for: .milliseconds(8))
+            }
+        } else if mountedCount > 0 {
+            try? await Task.sleep(for: .milliseconds(500))
+            if !Task.isCancelled, !folder.isExpanded { mountedCount = 0 }
+        }
+    }
     @Environment(\.spaceTheme) private var theme
 
     /// Abre la vista previa tras un momento sobre la fila y la cierra al salir de fila y vista previa.
@@ -573,21 +596,27 @@ private struct FolderSection: View {
                 ]
             }
 
-            if folder.isExpanded {
-                VStack(spacing: 2) {
-                    ForEach(Array(folder.tabs.enumerated()), id: \.element.id) { index, tab in
-                        TabRow(browser: browser, tab: tab, indent: 14)
-                            .sidebarDropTarget { size, zone in
-                                SidebarDropDelegate(
-                                    browser: browser, size: size,
-                                    location: { $0 == .before ? .folder(folder, index) : .folder(folder, index + 1) },
-                                    zone: zone
-                                )
-                            }
-                    }
+            // Como una lista nativa: la carpeta sabe su altura final desde el primer momento (las
+            // filas miden siempre lo mismo) y la anima; las filas se crean por tandas, fotograma a
+            // fotograma, mientras se descubren. Antes se creaban todas de golpe al abrir (con 30
+            // pestañas, un fotograma de más de 70 ms: el tirón del principio).
+            VStack(spacing: 2) {
+                ForEach(Array(folder.tabs.prefix(mountedCount).enumerated()), id: \.element.id) { index, tab in
+                    TabRow(browser: browser, tab: tab, indent: 14)
+                        .sidebarDropTarget { size, zone in
+                            SidebarDropDelegate(
+                                browser: browser, size: size,
+                                location: { $0 == .before ? .folder(folder, index) : .folder(folder, index + 1) },
+                                zone: zone
+                            )
+                        }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            .frame(height: folder.isExpanded ? expandedHeight : 0, alignment: .top)
+            .clipped()
+            .opacity(folder.isExpanded ? 1 : 0)
+            .allowsHitTesting(folder.isExpanded)
+            .task(id: folder.isExpanded) { await mountRows() }
         }
         .clipped()
         .animation(Theme.spring, value: folder.tabs.map(\.id))

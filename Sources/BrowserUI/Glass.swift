@@ -198,11 +198,16 @@ public struct SidebarRowStyle: ButtonStyle {
             configuration.label
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: height)
+                // Los fondos solo existen cuando se ven: con opacidad 0 igualmente se calculaban
+                // (y la sombra se dibujaba) en cada fila y en cada fotograma de las animaciones.
                 .background {
                     ZStack {
-                        RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                            .fill(Color(theme.hover))
-                            .opacity(isHovering && !isSelected ? 1 : 0)
+                        if isHovering && !isSelected {
+                            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                                .fill(Color(theme.hover))
+                                .transition(.opacity)
+                        }
+                        if isSelected {
                         RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
                             .fill(Color(theme.focus))
                             .overlay(
@@ -215,7 +220,8 @@ public struct SidebarRowStyle: ButtonStyle {
                                     )
                             )
                             .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
-                            .opacity(isSelected ? 1 : 0)
+                            .transition(.opacity)
+                        }
                     }
                 }
                 .scaleEffect(configuration.isPressed ? 0.975 : 1)
