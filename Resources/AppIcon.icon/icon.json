@@ -22,7 +22,7 @@
         {
           "blend-mode": "normal",
           "fill": {
-            "solid": "display-p3:1.0,0.72,0.2,1"
+            "solid": "display-p3:1.0,0.60,0.0,1"
           },
           "glass": true,
           "hidden": false,
@@ -76,7 +76,7 @@
         "opacity": 0.5
       },
       "translucency": {
-        "enabled": true,
+        "enabled": false,
         "value": 0.35
       }
     }
@@ -88,8 +88,8 @@
     {
       "value": {
         "linear-gradient": [
-          "display-p3:1.0,0.88,0.82,1",
-          "display-p3:1.0,0.80,0.80,1"
+          "display-p3:1.0,0.88,0.91,1",
+          "display-p3:0.98,0.80,0.87,1"
         ],
         "orientation": {
           "start": {
@@ -107,8 +107,8 @@
       "appearance": "dark",
       "value": {
         "linear-gradient": [
-          "display-p3:0.16,0.09,0.32,1",
-          "display-p3:0.07,0.04,0.15,1"
+          "display-p3:1.0,0.88,0.91,1",
+          "display-p3:0.98,0.80,0.87,1"
         ],
         "orientation": {
           "start": {
@@ -117,7 +117,7 @@
           },
           "stop": {
             "x": 0.5,
-            "y": 1.0
+            "y": 1
           }
         }
       }

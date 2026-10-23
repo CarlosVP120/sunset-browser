@@ -8,7 +8,7 @@ public enum Sunset {
     public static let rose = SpaceColor(red: 0.85, green: 0.30, blue: 0.45)
     public static let coral = SpaceColor(red: 0.98, green: 0.30, blue: 0.45)
     public static let orange = SpaceColor(red: 1.00, green: 0.50, blue: 0.25)
-    public static let amber = SpaceColor(red: 1.00, green: 0.72, blue: 0.20)
+    public static let amber = SpaceColor(red: 1.00, green: 0.60, blue: 0.00)
     public static let gold = SpaceColor(red: 1.00, green: 0.85, blue: 0.55)
     public static let violet = SpaceColor(red: 0.55, green: 0.36, blue: 0.95)
 }
