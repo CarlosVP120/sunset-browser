@@ -401,7 +401,7 @@ extension Browser {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd 'a las' HH.mm.ss"
             let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
-            try? png.write(to: desktop.appending(path: "Captura MiNavegador \(formatter.string(from: Date())).png"))
+            try? png.write(to: desktop.appending(path: "Captura Sunset \(formatter.string(from: Date())).png"))
             showToast("Captura copiada y guardada en el Escritorio", symbol: "camera.viewfinder")
         }
     }

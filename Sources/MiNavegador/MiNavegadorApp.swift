@@ -10,7 +10,7 @@ struct MiNavegadorApp: App {
     var body: some Scene {
         // Una sola ventana: todas las pestañas viven en ella (abrir un enlace desde fuera
         // añade una pestaña, no una ventana nueva).
-        Window("MiNavegador", id: "main") {
+        Window("Sunset Browser", id: "main") {
             BrowserWindow(browser: appDelegate.browser, engine: appDelegate.engine)
                 .frame(minWidth: 800, minHeight: 500)
         }

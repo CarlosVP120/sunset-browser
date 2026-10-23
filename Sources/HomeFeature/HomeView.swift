@@ -15,35 +15,40 @@ public struct HomeView: View {
     }
 
     public var body: some View {
-        let text = Color(theme.title)
-
         ZStack {
             HomeBackground(theme: theme)
 
             VStack(spacing: 0) {
                 Spacer(minLength: 40)
 
+                SunsetLogo()
+                    .fill(Sunset.raysGradient)
+                    .frame(width: 38, height: 19)
+                    .shadow(color: Color(Sunset.orange).opacity(0.6), radius: 14)
+                    .padding(.bottom, 22)
+                    .opacity(appeared ? 0.95 : 0)
+                    .scaleEffect(appeared ? 1 : 0.8)
+
                 Clock()
-                    .foregroundStyle(text)
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 12)
 
                 Text(Self.greeting())
-                    .font(.system(size: 20, weight: .medium, design: .rounded))
-                    .foregroundStyle(text.opacity(0.75))
-                    .padding(.top, 6)
+                    .font(.system(size: 22, weight: .regular, design: .serif).italic())
+                    .foregroundStyle(.white.opacity(0.78))
+                    .padding(.top, 14)
                     .opacity(appeared ? 1 : 0)
 
                 SearchPill(browser: browser)
                     .frame(maxWidth: 560)
-                    .padding(.top, 34)
+                    .padding(.top, 40)
                     .padding(.horizontal, 40)
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.96)
 
                 if !browser.favorites.isEmpty {
                     FavoritesRow(browser: browser)
-                        .padding(.top, 30)
+                        .padding(.top, 28)
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 10)
                         .transition(.opacity)
@@ -52,9 +57,10 @@ public struct HomeView: View {
                 Spacer(minLength: 40)
             }
         }
-        .environment(\.colorScheme, theme.isDark ? .dark : .light)
+        // El cielo de Inicio siempre es de noche: los controles van en modo oscuro.
+        .environment(\.colorScheme, .dark)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) { appeared = true }
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.85).delay(0.05)) { appeared = true }
         }
     }
 
@@ -75,19 +81,24 @@ public struct HomeView: View {
 
 private struct Clock: View {
     var body: some View {
-        // Una vez por segundo; en pausa con un menú abierto (ver MenuTracking).
-        TimelineView(.animation(minimumInterval: 1, paused: MenuTracking.shared.isTracking)) { context in
-            VStack(spacing: 4) {
-                Text(context.date, format: .dateTime.hour().minute())
-                    .font(.system(size: 112, weight: .thin, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .animation(.spring(response: 0.5, dampingFraction: 0.9), value: context.date.formatted(.dateTime.minute()))
+        // Solo muestra horas y minutos: basta con despertar una vez por minuto.
+        TimelineView(.everyMinute) { context in
+            VStack(spacing: 10) {
                 Text(context.date, format: .dateTime.weekday(.wide).day().month(.wide))
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .textCase(.uppercase)
-                    .kerning(1.6)
-                    .opacity(0.6)
+                    .kerning(2.6)
+                    .foregroundStyle(.white.opacity(0.5))
+                Text(context.date, format: .dateTime.hour(.defaultDigits(amPM: .omitted)).minute())
+                    .font(.system(size: 104, weight: .ultraLight))
+                    .kerning(-2)
+                    .monospacedDigit()
+                    .foregroundStyle(
+                        LinearGradient(colors: [.white, .white.opacity(0.62)], startPoint: .top, endPoint: .bottom)
+                    )
+                    .shadow(color: .white.opacity(0.12), radius: 30)
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.5, dampingFraction: 0.9), value: context.date)
             }
         }
     }
@@ -99,7 +110,6 @@ private struct Clock: View {
 private struct SearchPill: View {
     let browser: Browser
     @State private var isHovering = false
-    @Environment(\.spaceTheme) private var theme
 
     var body: some View {
         Button {
@@ -111,10 +121,10 @@ private struct SearchPill: View {
                 Text("Buscar o escribir una URL")
                     .font(.system(size: 17, weight: .medium))
                 Spacer()
-                ShortcutKeys("⌘L", onLightBackground: theme.isDark)
+                ShortcutKeys("⌘L", onLightBackground: true)
                     .opacity(0.7)
             }
-            .foregroundStyle(Color(theme.title).opacity(0.7))
+            .foregroundStyle(.white.opacity(isHovering ? 0.8 : 0.6))
             .padding(.horizontal, 20)
             .frame(height: 56)
             .background(
@@ -122,13 +132,10 @@ private struct SearchPill: View {
                     .fill(.ultraThinMaterial)
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color(theme.hover).opacity(isHovering ? 0.9 : 0.4))
+                            .fill(.white.opacity(isHovering ? 0.09 : 0.05))
                     )
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(.white.opacity(isHovering ? 0.22 : 0.12), lineWidth: 1)
-            )
+            .overlay(EdgeLight(cornerRadius: 18, isHovering: isHovering))
             .shadow(color: .black.opacity(isHovering ? 0.25 : 0.15), radius: isHovering ? 22 : 14, y: 8)
             .scaleEffect(isHovering ? 1.015 : 1)
             .contentShape(Rectangle())
@@ -155,7 +162,6 @@ private struct FavoritesRow: View {
         let browser: Browser
         let tab: BrowserTab
         @State private var isHovering = false
-        @Environment(\.spaceTheme) private var theme
 
         var body: some View {
             Button { browser.select(tab) } label: {
@@ -166,13 +172,10 @@ private struct FavoritesRow: View {
                             .fill(.ultraThinMaterial)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(Color(theme.hover).opacity(isHovering ? 0.9 : 0.35))
+                                    .fill(.white.opacity(isHovering ? 0.1 : 0.04))
                             )
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(.white.opacity(0.12), lineWidth: 1)
-                    )
+                    .overlay(EdgeLight(cornerRadius: 18, isHovering: isHovering))
                     .shadow(color: .black.opacity(isHovering ? 0.25 : 0.1), radius: isHovering ? 12 : 6, y: 4)
                     .scaleEffect(isHovering ? 1.08 : 1)
                     .offset(y: isHovering ? -3 : 0)
@@ -181,5 +184,22 @@ private struct FavoritesRow: View {
             .onHover { hovering in withAnimation(Theme.pressSpring) { isHovering = hovering } }
             .tooltip(tab.displayTitle)
         }
+    }
+}
+
+/// Borde de vidrio: una línea de luz más clara arriba que abajo, como el canto de un cristal.
+private struct EdgeLight: View {
+    let cornerRadius: CGFloat
+    let isHovering: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(
+                    colors: [.white.opacity(isHovering ? 0.32 : 0.2), .white.opacity(0.04), .white.opacity(isHovering ? 0.1 : 0.05)],
+                    startPoint: .top, endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
     }
 }

@@ -1,4 +1,4 @@
-# MiNavegador
+# Sunset Browser
 
 Navegador para macOS inspirado en Arc, construido con el mismo stack: Swift, SwiftUI, AppKit
 y Swift Package Manager. Ver [docs/arc-stack.md](docs/arc-stack.md) para el inventario completo.
@@ -6,13 +6,13 @@ y Swift Package Manager. Ver [docs/arc-stack.md](docs/arc-stack.md) para el inve
 ## Ejecutar
 
 ```bash
-./scripts/bundle.sh && open build/MiNavegador.app
+./scripts/bundle.sh && open "build/Sunset Browser.app"
 ```
 
 O abrir una URL directamente:
 
 ```bash
-open -a build/MiNavegador.app https://www.apple.com
+open -a "build/Sunset Browser.app" https://www.apple.com
 ```
 
 Tests: `swift test`
