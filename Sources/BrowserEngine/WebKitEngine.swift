@@ -221,6 +221,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         case .pause: "pause()"
         case .toggleMute: "toggleMute()"
         case .seek(let seconds): "seek(\(seconds))"
+        case .seekTo(let seconds): "seekTo(\(seconds))"
         }
         webView.evaluateJavaScript("window.__miNavegadorMedia?.\(call)")
     }
@@ -234,7 +235,9 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
             isPlaying: state["playing"] as? Bool ?? false,
             isMuted: state["muted"] as? Bool ?? false,
             hasVideo: state["video"] as? Bool ?? false,
-            isInPictureInPicture: state["pip"] as? Bool ?? false
+            isInPictureInPicture: state["pip"] as? Bool ?? false,
+            currentTime: (state["time"] as? NSNumber)?.doubleValue ?? 0,
+            duration: (state["duration"] as? NSNumber)?.doubleValue ?? 0
         ))
     }
 

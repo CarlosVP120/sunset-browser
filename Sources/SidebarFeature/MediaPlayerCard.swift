@@ -58,6 +58,13 @@ struct MediaPlayerCard: View {
                 }
                 .contentTransition(.symbolEffect(.replace))
             }
+
+            if let media, media.duration > 0 {
+                ProgressScrubber(media: media, showsTimes: isHovering) { seconds in
+                    browser.mediaCommand(.seekTo(seconds), for: tab)
+                }
+                .transition(.opacity)
+            }
         }
         .buttonStyle(ChromeButtonStyle(size: 28))
         .environment(\.colorScheme, .dark)
@@ -80,5 +87,73 @@ struct MediaPlayerCard: View {
                 .frame(maxWidth: .infinity)
         }
         .tooltip(tooltip)
+    }
+}
+
+/// Barra de progreso arrastrable. Mientras se arrastra muestra la posición nueva y solo salta
+/// al soltar (así no se manda una orden por cada píxel).
+private struct ProgressScrubber: View {
+    let media: MediaState
+    let showsTimes: Bool
+    let onSeek: (Double) -> Void
+
+    @State private var dragProgress: Double?
+    @State private var isHovering = false
+
+    var body: some View {
+        let progress = dragProgress ?? min(1, media.currentTime / media.duration)
+        let isActive = isHovering || dragProgress != nil
+
+        VStack(spacing: 4) {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.18))
+                    Capsule().fill(.white.opacity(0.9))
+                        .frame(width: max(0, geometry.size.width * progress))
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 11, height: 11)
+                        .shadow(color: .black.opacity(0.4), radius: 2)
+                        .offset(x: geometry.size.width * progress - 5.5)
+                        .opacity(isActive ? 1 : 0)
+                        .scaleEffect(dragProgress != nil ? 1.2 : 1)
+                }
+                .frame(height: isActive ? 5 : 3)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            dragProgress = min(1, max(0, drag.location.x / max(geometry.size.width, 1)))
+                        }
+                        .onEnded { _ in
+                            if let dragProgress { onSeek(dragProgress * media.duration) }
+                            dragProgress = nil
+                        }
+                )
+            }
+            .frame(height: 12)
+
+            if showsTimes || dragProgress != nil {
+                HStack {
+                    Text(Self.format(progress * media.duration))
+                    Spacer()
+                    Text("-" + Self.format(media.duration - progress * media.duration))
+                }
+                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.55))
+                .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 4)
+        .onHover { hovering in withAnimation(Theme.hoverIn) { isHovering = hovering } }
+        .animation(Theme.pressSpring, value: dragProgress != nil)
+        .animation(.linear(duration: 0.9), value: media.currentTime)
+    }
+
+    static func format(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let hours = total / 3600, minutes = (total % 3600) / 60, secs = total % 60
+        return hours > 0 ? String(format: "%d:%02d:%02d", hours, minutes, secs) : String(format: "%d:%02d", minutes, secs)
     }
 }

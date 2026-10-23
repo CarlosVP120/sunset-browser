@@ -6,12 +6,24 @@ public struct MediaState: Equatable, Sendable {
     public var isMuted: Bool
     public var hasVideo: Bool
     public var isInPictureInPicture: Bool
+    /// Segundo actual y duración total (0 si es un directo o aún no se sabe).
+    public var currentTime: Double
+    public var duration: Double
 
-    public init(isPlaying: Bool, isMuted: Bool, hasVideo: Bool, isInPictureInPicture: Bool) {
+    public init(
+        isPlaying: Bool,
+        isMuted: Bool,
+        hasVideo: Bool,
+        isInPictureInPicture: Bool,
+        currentTime: Double = 0,
+        duration: Double = 0
+    ) {
         self.isPlaying = isPlaying
         self.isMuted = isMuted
         self.hasVideo = hasVideo
         self.isInPictureInPicture = isInPictureInPicture
+        self.currentTime = currentTime
+        self.duration = duration
     }
 }
 
@@ -43,14 +55,17 @@ enum MediaScript {
           playing: !m.paused && !m.ended,
           muted: m.muted || m.volume === 0,
           video: m.tagName === 'VIDEO' && m.videoWidth > 0,
-          pip: m.webkitPresentationMode === 'picture-in-picture'
+          pip: m.webkitPresentationMode === 'picture-in-picture',
+          // En segundos enteros: basta para la barra y evita mandar un mensaje por fotograma.
+          time: Math.floor(m.currentTime || 0),
+          duration: Number.isFinite(m.duration) ? Math.floor(m.duration) : 0
         } : null;
         const json = JSON.stringify(state);
         if (json !== last) { last = json; handler.postMessage(state); }
       };
 
       for (const type of ['play', 'playing', 'pause', 'ended', 'volumechange', 'emptied',
-                          'webkitpresentationmodechanged', 'loadeddata']) {
+                          'webkitpresentationmodechanged', 'loadeddata', 'timeupdate', 'durationchange', 'seeked']) {
         document.addEventListener(type, report, true);
       }
 
@@ -67,6 +82,7 @@ enum MediaScript {
         togglePlayback() { const m = primary(); if (m) { m.paused ? m.play() : m.pause(); } },
         pause() { const m = primary(); if (m) m.pause(); },
         seek(seconds) { const m = primary(); if (m) m.currentTime = Math.max(0, m.currentTime + seconds); },
+        seekTo(seconds) { const m = primary(); if (m) m.currentTime = Math.max(0, seconds); },
         toggleMute() { const m = primary(); if (m) m.muted = !m.muted; }
       };
     })();

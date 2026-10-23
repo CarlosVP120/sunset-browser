@@ -81,7 +81,10 @@ public protocol WebPage: AnyObject {
 /// Controles del reproductor de la barra lateral.
 public enum MediaCommand: Sendable {
     case togglePlayback, pause, toggleMute
+    /// Avanza o retrocede unos segundos.
     case seek(Double)
+    /// Salta a un segundo concreto (la barra de progreso).
+    case seekTo(Double)
 }
 
 /// Fábrica de páginas. Cambiar de motor (WebKit → Chromium/CEF) es cambiar esta pieza.

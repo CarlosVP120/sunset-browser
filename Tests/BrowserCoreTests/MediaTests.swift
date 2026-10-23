@@ -88,4 +88,18 @@ final class MediaTests: XCTestCase {
         browser.select(video)
         XCTAssertTrue(browser.parkedMediaPages.isEmpty)
     }
+
+    func testSidebarScrubberSeeksToAnExactSecond() throws {
+        let (browser, _) = makeBrowser()
+        let video = browser.openTab(URL(string: "https://youtube.com/watch"))
+        let page = try XCTUnwrap(video.page as? FakePage)
+        page.onMediaChange?(MediaState(isPlaying: true, isMuted: false, hasVideo: true, isInPictureInPicture: false,
+                                       currentTime: 30, duration: 240))
+        XCTAssertEqual(video.media?.duration, 240)
+
+        browser.mediaCommand(.seekTo(120), for: video)
+
+        guard case .seekTo(let seconds)? = page.mediaCommands.last else { return XCTFail("Se esperaba un salto") }
+        XCTAssertEqual(seconds, 120)
+    }
 }
