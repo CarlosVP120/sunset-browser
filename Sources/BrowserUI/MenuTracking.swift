@@ -34,5 +34,7 @@ public final class MenuTracking {
         depth = max(0, depth + delta)
         let tracking = depth > 0
         if tracking != isTracking { isTracking = tracking }
+        // Un tooltip no debe quedarse flotando encima de un menú.
+        if tracking { TooltipController.shared.hide() }
     }
 }

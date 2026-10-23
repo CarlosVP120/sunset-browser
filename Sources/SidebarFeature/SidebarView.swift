@@ -282,11 +282,13 @@ private struct FavoriteTile: View {
         .buttonStyle(FavoriteTileStyle(isSelected: isSelected))
         .tooltip(tab.displayTitle)
         .onDrag { DragPayload.provider(for: tab) }
-        .contextMenu {
-            Button("Quitar de favoritos") { browser.removeFromFavorites(tab) }
-            CopyLinkButton(tab: tab)
-            Divider()
-            Button("Descargar de memoria") { browser.close(tab) }
+        .nativeContextMenu {
+            [
+                .button("Quitar de favoritos") { browser.removeFromFavorites(tab) },
+                copyLinkEntry(tab),
+                .separator,
+                .button("Descargar de memoria") { browser.close(tab) },
+            ]
         }
     }
 }
@@ -348,29 +350,35 @@ private struct TabRow: View {
         }
         .buttonStyle(SidebarRowStyle(isSelected: isSelected))
         .onDrag { DragPayload.provider(for: tab) }
-        .contextMenu {
-            Button("Renombrar…") { browser.renamingTabID = tab.id }
-            if tab.customTitle != nil {
-                Button("Restablecer nombre") { browser.rename(tab, to: "") }
-            }
-            Button("Duplicar") {
+        .nativeContextMenu { menuEntries() }
+    }
+
+    private func menuEntries() -> [MenuEntry] {
+        let space = browser.activeSpace
+        var entries: [MenuEntry] = [.button("Renombrar…") { browser.renamingTabID = tab.id }]
+        if tab.customTitle != nil {
+            entries.append(.button("Restablecer nombre") { browser.rename(tab, to: "") })
+        }
+        entries += [
+            .button("Duplicar") {
                 browser.select(tab)
                 browser.perform(.duplicateTab)
-            }
-            Divider()
-            Button("Añadir a favoritos") { browser.addToFavorites(tab) }
-            Button(isPinned ? "Desfijar" : "Fijar") { withAnimation(Theme.spring) { browser.togglePin(tab) } }
-            if !space.folders.isEmpty {
-                Menu("Mover a carpeta") {
-                    ForEach(space.folders) { folder in
-                        Button(folder.name) { withAnimation(Theme.spring) { browser.move(tab, to: .folder(folder, folder.tabs.count)) } }
-                    }
-                }
-            }
-            CopyLinkButton(tab: tab)
-            Divider()
-            Button("Cerrar pestaña") { withAnimation(Theme.spring) { browser.close(tab) } }
+            },
+            .separator,
+            .button("Añadir a favoritos") { browser.addToFavorites(tab) },
+            .button(space.isPinned(tab) ? "Desfijar" : "Fijar") { withAnimation(Theme.spring) { browser.togglePin(tab) } },
+        ]
+        if !space.folders.isEmpty {
+            entries.append(.menu("Mover a carpeta", space.folders.map { folder in
+                .button(folder.name) { withAnimation(Theme.spring) { browser.move(tab, to: .folder(folder, folder.tabs.count)) } }
+            }))
         }
+        entries += [
+            copyLinkEntry(tab),
+            .separator,
+            .button("Cerrar pestaña") { withAnimation(Theme.spring) { browser.close(tab) } },
+        ]
+        return entries
     }
 }
 
@@ -477,12 +485,14 @@ private struct FolderSection: View {
                     zone: zone
                 )
             }
-            .contextMenu {
-                Button("Renombrar") {
-                    newName = folder.name
-                    isRenaming = true
-                }
-                Button("Eliminar carpeta") { withAnimation(Theme.spring) { browser.delete(folder) } }
+            .nativeContextMenu {
+                [
+                    .button("Renombrar") {
+                        newName = folder.name
+                        isRenaming = true
+                    },
+                    .button("Eliminar carpeta") { withAnimation(Theme.spring) { browser.delete(folder) } },
+                ]
             }
 
             if folder.isExpanded {
@@ -528,16 +538,12 @@ private struct NewTabRow: View {
     }
 }
 
-private struct CopyLinkButton: View {
-    let tab: BrowserTab
-
-    var body: some View {
-        Button("Copiar enlace") {
-            guard let url = tab.url else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(url.absoluteString, forType: .string)
-        }
-        .disabled(tab.url == nil)
+@MainActor
+private func copyLinkEntry(_ tab: BrowserTab) -> MenuEntry {
+    .button("Copiar enlace", enabled: tab.url != nil) {
+        guard let url = tab.url else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 }
 
@@ -574,7 +580,7 @@ private struct BottomBar: View {
                         .scaleEffect(isActive ? 1.1 : 1)
                 }
                 .tooltip(space.name, shortcut: index < 9 ? "⌃\(index + 1)" : nil)
-                .contextMenu { SpaceMenu(browser: browser, space: space) }
+                .nativeContextMenu { SpaceMenu.entries(browser: browser, space: space) }
             }
 
             Spacer()

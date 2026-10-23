@@ -2,74 +2,62 @@ import SwiftUI
 import BrowserCore
 import BrowserUI
 
-/// Menú contextual de un espacio, con las mismas opciones que Arc.
-struct SpaceMenu: View {
-    let browser: Browser
-    let space: Space
-
-    var body: some View {
-        Button("Cambiar icono…") { open(.icon) }
-        Button("Renombrar espacio…") { open(.rename) }
-        Button("Editar color del tema…") { open(.theme) }
-        Menu("Perfil") {
-            Toggle("Predeterminado", isOn: Binding(
-                get: { space.profileID == nil },
-                set: { if $0 { browser.setProfile(nil, for: space) } }
-            ))
-            ForEach(browser.profiles) { profile in
-                Toggle(profile.name, isOn: Binding(
-                    get: { space.profileID == profile.id },
-                    set: { if $0 { browser.setProfile(profile.id, for: space) } }
-                ))
-            }
-            Divider()
-            Button("Nuevo perfil…") {
+/// Menú de un espacio, con las mismas opciones que Arc. Es un menú nativo de AppKit (ver
+/// `MenuEntry`): se construye al abrirlo, así SwiftUI no puede romperlo mientras está abierto.
+@MainActor
+enum SpaceMenu {
+    static func entries(browser: Browser, space: Space) -> [MenuEntry] {
+        var profiles: [MenuEntry] = [
+            .button("Predeterminado", checked: space.profileID == nil) { browser.setProfile(nil, for: space) },
+        ]
+        profiles += browser.profiles.map { profile in
+            .button(profile.name, checked: space.profileID == profile.id) { browser.setProfile(profile.id, for: space) }
+        }
+        profiles += [
+            .separator,
+            .button("Nuevo perfil…") {
                 if let name = TextPrompt.ask(title: "Nuevo perfil",
                                              message: "Cada perfil tiene sus propias cookies y sesiones.",
                                              placeholder: "Trabajo") {
                     let profile = browser.addProfile(named: name)
                     browser.setProfile(profile.id, for: space)
                 }
-            }
-        }
+            },
+        ]
+        let others = browser.spaces.filter { $0.id != space.id }
 
-        Divider()
-
-        Button("Nueva carpeta") {
-            browser.activate(space)
-            withAnimation(Theme.spring) { _ = browser.newFolder() }
-        }
-
-        Divider()
-
-        Menu("Exportar «\(space.name)» a una carpeta") {
-            ForEach(browser.spaces.filter { $0.id != space.id }) { target in
-                Button(target.name) { browser.export(space, intoFolderIn: target) }
-            }
-        }
-        .disabled(browser.spaces.count < 2)
-
-        Divider()
-
-        Button("Gestionar espacios…") { browser.showsSpaceManager = true }
-
-        Divider()
-
-        Button("Borrar espacio", role: .destructive) {
-            if confirmDelete() { withAnimation(Theme.spring) { browser.delete(space) } }
-        }
-        .disabled(browser.spaces.count < 2)
+        return [
+            .button("Cambiar icono…") { open(.icon, browser: browser, space: space) },
+            .button("Renombrar espacio…") { open(.rename, browser: browser, space: space) },
+            .button("Editar color del tema…") { open(.theme, browser: browser, space: space) },
+            .menu("Perfil", profiles),
+            .separator,
+            .button("Nueva carpeta") {
+                browser.activate(space)
+                withAnimation(Theme.spring) { _ = browser.newFolder() }
+            },
+            .separator,
+            .menu("Exportar «\(space.name)» a una carpeta", others.map { target in
+                .button(target.name) { browser.export(space, intoFolderIn: target) }
+            }),
+            .separator,
+            .button("Gestionar espacios…") { browser.showsSpaceManager = true },
+            .separator,
+            .button("Borrar espacio", enabled: browser.spaces.count > 1, destructive: true) {
+                if confirmDelete(space) { withAnimation(Theme.spring) { browser.delete(space) } }
+            },
+        ]
     }
 
-    private func open(_ kind: SpaceEditorRequest.Kind) {
+    private static func open(_ kind: SpaceEditorRequest.Kind, browser: Browser, space: Space) {
         browser.activate(space)
-        // Se abre en el siguiente ciclo para que el menú contextual termine de cerrarse.
+        // Se abre en el siguiente ciclo para que la barra lateral ya muestre este espacio.
         DispatchQueue.main.async {
             browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: kind)
         }
     }
 
-    private func confirmDelete() -> Bool {
+    private static func confirmDelete(_ space: Space) -> Bool {
         let alert = NSAlert()
         alert.messageText = "¿Borrar el espacio «\(space.name)»?"
         alert.informativeText = "Sus \(space.allTabs.count) pestañas irán al archivo, donde puedes recuperarlas."
@@ -141,17 +129,13 @@ struct SpaceHeader: View {
             }
             Spacer(minLength: 0)
 
-            Menu {
-                SpaceMenu(browser: browser, space: space)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .bold))
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .tooltip("Opciones del espacio")
-            .opacity(isHovering || isMenuHovering ? 1 : 0)
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+                .nativeMenuOnClick { SpaceMenu.entries(browser: browser, space: space) }
+                .tooltip("Opciones del espacio")
+                .opacity(isHovering || isMenuHovering ? 1 : 0)
             .onHover { isMenuHovering = $0 }
         }
         .foregroundStyle(Color(theme.subtitle).opacity(1.4))
@@ -167,7 +151,7 @@ struct SpaceHeader: View {
         .onTapGesture(count: 2) { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename) }
         .onTapGesture { withAnimation(Theme.spring) { browser.togglePinnedSection(space) } }
         .tooltip(space.isPinnedCollapsed ? "Mostrar fijadas" : "Plegar fijadas")
-        .contextMenu { SpaceMenu(browser: browser, space: space) }
+        .nativeContextMenu { SpaceMenu.entries(browser: browser, space: space) }
         .popover(isPresented: binding(.theme), arrowEdge: .trailing) {
             ThemeEditor(browser: browser, space: space)
         }
