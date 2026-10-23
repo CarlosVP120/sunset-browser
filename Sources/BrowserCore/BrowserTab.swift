@@ -16,8 +16,12 @@ public final class BrowserTab: Identifiable {
     public private(set) var progress: Double = 1
     public private(set) var canGoBack = false
     public private(set) var canGoForward = false
-    /// Audio/vídeo principal de la página, si hay.
+    /// Audio/vídeo principal de la página, si hay. No incluye el tiempo de reproducción
+    /// (va en `mediaPosition`): así, lo que solo necesita saber si suena algo no se redibuja cada segundo.
     public private(set) var media: MediaState?
+    /// Segundo actual y duración del medio. Cambia cada segundo mientras suena: solo debe leerlo
+    /// la barra de progreso.
+    public private(set) var mediaPosition: MediaPosition?
     /// La página en memoria; `nil` mientras la pestaña está hibernada.
     public private(set) var page: WebPage?
     public private(set) var lastActiveAt = Date()
@@ -133,10 +137,16 @@ public final class BrowserTab: Identifiable {
     }
 
     func updateMedia(_ state: MediaState?) {
+        let position = state.map { MediaPosition(currentTime: $0.currentTime, duration: $0.duration) }
+        if position != mediaPosition { mediaPosition = position }
+
+        var withoutTime = state
+        withoutTime?.currentTime = 0
+        withoutTime?.duration = 0
         let old = media
-        guard old != state else { return }
-        media = state
-        onMediaUpdate?(old, state)
+        guard old != withoutTime else { return }
+        media = withoutTime
+        onMediaUpdate?(old, withoutTime)
     }
 
     private func apply(_ snapshot: WebPageSnapshot) {

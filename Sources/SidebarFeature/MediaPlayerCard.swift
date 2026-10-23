@@ -59,11 +59,9 @@ struct MediaPlayerCard: View {
                 .contentTransition(.symbolEffect(.replace))
             }
 
-            if let media, media.duration > 0 {
-                ProgressScrubber(media: media, showsTimes: isHovering) { seconds in
-                    browser.mediaCommand(.seekTo(seconds), for: tab)
-                }
-                .transition(.opacity)
+            // La barra lee el tiempo por su cuenta: solo ella se redibuja cada segundo.
+            ProgressScrubber(tab: tab, showsTimes: isHovering) { seconds in
+                browser.mediaCommand(.seekTo(seconds), for: tab)
             }
         }
         .buttonStyle(ChromeButtonStyle(size: 28))
@@ -93,7 +91,7 @@ struct MediaPlayerCard: View {
 /// Barra de progreso arrastrable. Mientras se arrastra muestra la posición nueva y solo salta
 /// al soltar (así no se manda una orden por cada píxel).
 private struct ProgressScrubber: View {
-    let media: MediaState
+    let tab: BrowserTab
     let showsTimes: Bool
     let onSeek: (Double) -> Void
 
@@ -101,10 +99,17 @@ private struct ProgressScrubber: View {
     @State private var isHovering = false
 
     var body: some View {
+        if let position = tab.mediaPosition, position.duration > 0 {
+            bar(position)
+                .transition(.opacity)
+        }
+    }
+
+    private func bar(_ media: MediaPosition) -> some View {
         let progress = dragProgress ?? min(1, media.currentTime / media.duration)
         let isActive = isHovering || dragProgress != nil
 
-        VStack(spacing: 4) {
+        return VStack(spacing: 4) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.18))

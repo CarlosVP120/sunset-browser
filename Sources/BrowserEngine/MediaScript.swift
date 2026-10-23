@@ -27,6 +27,17 @@ public struct MediaState: Equatable, Sendable {
     }
 }
 
+/// Posición de reproducción: segundo actual y duración total (0 si es un directo).
+public struct MediaPosition: Equatable, Sendable {
+    public var currentTime: Double
+    public var duration: Double
+
+    public init(currentTime: Double, duration: Double) {
+        self.currentTime = currentTime
+        self.duration = duration
+    }
+}
+
 /// Script que se inyecta en cada página: avisa de los cambios de sus medios y ofrece
 /// controles (`window.__miNavegadorMedia`) que el navegador llama desde fuera.
 enum MediaScript {

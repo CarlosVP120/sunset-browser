@@ -88,15 +88,9 @@ public struct SidebarView: View {
                 }
             }
 
-            // Reproductores de lo que suena en otras pestañas (como en Arc).
-            VStack(spacing: 6) {
-                ForEach(browser.backgroundMediaTabs.prefix(2)) { tab in
-                    MediaPlayerCard(browser: browser, tab: tab)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .padding(.top, browser.backgroundMediaTabs.isEmpty ? 0 : 6)
-            .animation(Theme.spring, value: browser.backgroundMediaTabs.map(\.id))
+            // Reproductores de lo que suena en otras pestañas (como en Arc). Va en su propia vista
+            // para que sus cambios no redibujen toda la barra lateral (ni sus menús abiertos).
+            MediaPlayersSection(browser: browser)
 
             BottomBar(browser: browser, libraryButton: libraryButton)
         }
@@ -108,6 +102,22 @@ public struct SidebarView: View {
             spaceTransitionEdge = newIndex >= oldIndex ? .trailing : .leading
         }
         .animation(Theme.spring, value: browser.activeSpaceID)
+    }
+}
+
+private struct MediaPlayersSection: View {
+    let browser: Browser
+
+    var body: some View {
+        let tabs = browser.backgroundMediaTabs
+        VStack(spacing: 6) {
+            ForEach(tabs.prefix(2)) { tab in
+                MediaPlayerCard(browser: browser, tab: tab)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding(.top, tabs.isEmpty ? 0 : 6)
+        .animation(Theme.spring, value: tabs.map(\.id))
     }
 }
 
