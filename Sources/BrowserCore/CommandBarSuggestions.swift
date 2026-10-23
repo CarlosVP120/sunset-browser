@@ -142,11 +142,7 @@ extension Browser {
         commandBar = nil
         switch suggestion.action {
         case .open(let url):
-            if mode == .currentTab, let tab = selectedTab {
-                tab.load(url)
-            } else {
-                openTab(url)
-            }
+            load(url, inCurrentTabOr: mode == .currentTab ? selectedTab : nil)
         case .switchToTab(let id):
             if let tab = tab(withID: id) { reveal(tab) }
         case .switchToSpace(let id):

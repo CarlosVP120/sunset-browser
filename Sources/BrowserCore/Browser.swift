@@ -162,10 +162,39 @@ public final class Browser {
     /// Navega en la pestaña actual o abre una si no hay ninguna.
     public func navigate(to input: String) {
         guard let url = URLInput.resolve(input) else { return }
-        if let tab = selectedTab {
+        load(url, inCurrentTabOr: selectedTab)
+    }
+
+    /// Abre `url` en la pestaña actual; si es fijada o favorita y la dirección es de otro sitio,
+    /// en una pestaña nueva (como Arc: tus fijadas no se pierden).
+    func load(_ url: URL, inCurrentTabOr tab: BrowserTab?) {
+        if let tab, !(tab.pinnedURL.map { !BrowserTab.isSameSite($0, url) } ?? false) {
             tab.load(url)
         } else {
             openTab(url)
+        }
+    }
+
+    /// Lleva una fijada o favorita de vuelta a su dirección (clic en la "/" de la barra lateral).
+    public func returnToPinnedURL(_ tab: BrowserTab) {
+        guard let pinnedURL = tab.pinnedURL else { return }
+        tab.load(pinnedURL)
+    }
+
+    /// Las fijadas y favoritas guardan su dirección fijada; las demás no tienen.
+    func refreshPinnedURLs() {
+        let anchored = Set(favorites.map(\.id) + spaces.flatMap { space in space.pinned.flatMap { item -> [UUID] in
+            switch item {
+            case .tab(let tab): [tab.id]
+            case .folder(let folder): folder.tabs.map(\.id)
+            }
+        } })
+        for tab in allTabs {
+            if anchored.contains(tab.id) {
+                if tab.pinnedURL == nil, let url = tab.url, !tab.isHome { tab.pinnedURL = url }
+            } else {
+                tab.pinnedURL = nil
+            }
         }
     }
 
@@ -183,7 +212,7 @@ public final class Browser {
         let index = space.tabs.firstIndex { $0.id == tab.id } ?? 0
         let keepsTab = isFavorite(tab) || space.isPinned(tab)
 
-        tab.hibernate()
+        if keepsTab { tab.resetToPinned() } else { tab.hibernate() }
         if !keepsTab {
             space.remove(tab)
             if let url = tab.url, !tab.isHome {
@@ -229,6 +258,7 @@ public final class Browser {
             detach(tab)
             space.pinned.append(.tab(tab))
         }
+        refreshPinnedURLs()
         scheduleSave()
     }
 
@@ -236,6 +266,7 @@ public final class Browser {
         guard !isFavorite(tab) else { return }
         detach(tab)
         favorites.append(tab)
+        refreshPinnedURLs()
         scheduleSave()
     }
 
@@ -243,6 +274,7 @@ public final class Browser {
         guard isFavorite(tab) else { return }
         favorites.removeAll { $0.id == tab.id }
         activeSpace.tabs.insert(tab, at: 0)
+        refreshPinnedURLs()
         scheduleSave()
     }
 
@@ -480,6 +512,8 @@ public final class Browser {
 
     /// Guarda la barra lateral un segundo después del último cambio.
     func scheduleSave() {
+        // Cualquier cambio de la barra (arrastrar, fijar, carpetas…) puede crear o quitar fijadas.
+        refreshPinnedURLs()
         guard store != nil else { return }
         saveTask?.cancel()
         saveTask = Task { [weak self] in
@@ -600,7 +634,8 @@ public final class Browser {
 
     func snapshot() -> SidebarSnapshot {
         func record(_ tab: BrowserTab) -> SidebarSnapshot.TabRecord {
-            .init(id: tab.id, url: tab.url, title: tab.title, faviconURL: tab.faviconURL, customTitle: tab.customTitle)
+            .init(id: tab.id, url: tab.url, title: tab.title, faviconURL: tab.faviconURL, customTitle: tab.customTitle,
+                  pinnedURL: tab.pinnedURL)
         }
         return SidebarSnapshot(
             favorites: favorites.map(record),
@@ -635,6 +670,7 @@ public final class Browser {
         func tab(_ record: SidebarSnapshot.TabRecord) -> BrowserTab {
             let tab = makeTab(url: record.url, id: record.id, title: record.title, faviconURL: record.faviconURL)
             tab.customTitle = record.customTitle
+            tab.pinnedURL = record.pinnedURL
             return tab
         }
         favorites = snapshot.favorites.map(tab)
@@ -658,5 +694,6 @@ public final class Browser {
         if let activeSpaceID = snapshot.activeSpaceID { self.activeSpaceID = activeSpaceID }
         archive = snapshot.archive
         profiles = snapshot.profiles
+        refreshPinnedURLs()
     }
 }

@@ -395,6 +395,19 @@ private struct TabRowLabel: View {
     var body: some View {
         HStack(spacing: 8) {
             LoadingFavicon(tab: tab)
+            if tab.isAwayFromPinned {
+                // Como en Arc: la fijada se movió de su dirección. Pulsar la "/" la devuelve.
+                Button { browser.returnToPinnedURL(tab) } label: {
+                    Text("/")
+                        .font(.system(size: 15, weight: .light))
+                        .foregroundStyle(Color(theme.subtitle).opacity(1.6))
+                        .padding(.horizontal, 1)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .tooltip("Volver a \(tab.pinnedURL?.host() ?? "la dirección fijada")")
+                .transition(.scale(scale: 0.5).combined(with: .opacity))
+            }
             if browser.renamingTabID == tab.id {
                 TextField(tab.title, text: $newName)
                     .textFieldStyle(.plain)
@@ -425,13 +438,15 @@ private struct TabRowLabel: View {
                         .font(.system(size: 9.5, weight: .bold))
                 }
                 .buttonStyle(ChromeButtonStyle(size: 22))
-                .tooltip(isPinned ? "Descargar de memoria" : "Cerrar pestaña", shortcut: "⌘W")
+                .tooltip(isPinned ? (tab.isAwayFromPinned ? "Volver a la dirección fijada" : "Descargar de memoria") : "Cerrar pestaña",
+                         shortcut: "⌘W")
                 .transition(.scale(scale: 0.7).combined(with: .opacity))
             }
         }
         .animation(Theme.hoverIn, value: isHovering)
         .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
         .animation(Theme.spring, value: tab.isLoading)
+        .animation(Theme.spring, value: tab.isAwayFromPinned)
     }
 }
 

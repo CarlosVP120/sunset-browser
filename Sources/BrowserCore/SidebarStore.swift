@@ -8,6 +8,8 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var title: String
         public var faviconURL: URL?
         public var customTitle: String?
+        /// Dirección fijada (pestañas fijadas y favoritas).
+        public var pinnedURL: URL? = nil
     }
 
     public struct FolderRecord: Codable, Equatable, Sendable {

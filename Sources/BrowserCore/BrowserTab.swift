@@ -25,6 +25,9 @@ public final class BrowserTab: Identifiable {
     /// La página en memoria; `nil` mientras la pestaña está hibernada.
     public private(set) var page: WebPage?
     public private(set) var lastActiveAt = Date()
+    /// La dirección "de casa" de una pestaña fijada o favorita (como en Arc): puedes navegar
+    /// desde ella, pero al cerrarla vuelve aquí. `nil` en las pestañas normales.
+    public internal(set) var pinnedURL: URL?
 
     @ObservationIgnored private let makePage: @MainActor () -> WebPage
     @ObservationIgnored private var savedInteractionState: Any?
@@ -54,6 +57,47 @@ public final class BrowserTab: Identifiable {
     }
 
     public var isHibernated: Bool { page == nil }
+
+    /// Es fijada o favorita y se ha movido de su dirección (la barra lateral muestra "/").
+    public var isAwayFromPinned: Bool {
+        guard let pinnedURL, let url else { return false }
+        return !Self.isSameLocation(url, pinnedURL)
+    }
+
+    /// Misma página, sin contar "www.", la barra final ni el ancla (#…): abrir un correo en
+    /// Gmail o saltar a una sección no cuenta como irse.
+    static func isSameLocation(_ a: URL, _ b: URL) -> Bool {
+        func key(_ url: URL) -> String {
+            var host = url.host()?.lowercased() ?? ""
+            if host.hasPrefix("www.") { host.removeFirst(4) }
+            var path = url.path()
+            while path.hasSuffix("/") { path.removeLast() }
+            return "\(host)\(path)?\(url.query() ?? "")"
+        }
+        return key(a) == key(b)
+    }
+
+    /// Mismo sitio (dominio sin "www."), para decidir si escribir otra dirección abre pestaña nueva.
+    static func isSameSite(_ a: URL, _ b: URL) -> Bool {
+        func site(_ url: URL) -> String {
+            let host = url.host()?.lowercased() ?? ""
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        return site(a) == site(b)
+    }
+
+    /// Vuelve a la dirección fijada y libera la página (lo que hace Arc al cerrar una fijada).
+    func resetToPinned() {
+        guard let pinnedURL else { return hibernate() }
+        let wasAway = isAwayFromPinned
+        hibernate()
+        if wasAway {
+            url = pinnedURL
+            savedInteractionState = nil
+            canGoBack = false
+            canGoForward = false
+        }
+    }
 
     /// Suena algo o está en PiP: no se hiberna (no se te corta la música).
     public var hasActiveMedia: Bool {

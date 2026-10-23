@@ -59,5 +59,14 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --sign - "$APP" >/dev/null
+# Firma. Sin identidad, firma local (ad hoc): todo funciona menos las llaves de acceso (passkeys).
+# Con SUNSET_SIGN_IDENTITY="Developer ID Application: …" y SUNSET_PROFILE=<perfil .provisionprofile
+# con el permiso de navegador>, se firma con los permisos de Resources/SunsetBrowser.entitlements.
+if [[ -n "${SUNSET_SIGN_IDENTITY:-}" ]]; then
+    [[ -n "${SUNSET_PROFILE:-}" ]] && cp "$SUNSET_PROFILE" "$APP/Contents/embedded.provisionprofile"
+    codesign --force --options runtime --timestamp --entitlements Resources/SunsetBrowser.entitlements \
+        --sign "$SUNSET_SIGN_IDENTITY" "$APP" >/dev/null
+else
+    codesign --force --sign - "$APP" >/dev/null
+fi
 echo "Listo: $APP"
