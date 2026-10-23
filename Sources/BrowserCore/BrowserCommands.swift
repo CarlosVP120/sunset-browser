@@ -146,6 +146,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .openWebInspector: "⌥⌘I"
         case .inspectElement: "⌥⌘C"
         case .toggleResponsive: "⇧⌘M"
+        case .toggleDeveloperMode: "⌃D"
         case .copyURLAsMarkdown: "⌥⇧⌘C"
         case .reload: "⌘R"
         case .forceReload: "⇧⌘R"

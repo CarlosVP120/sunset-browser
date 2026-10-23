@@ -96,6 +96,8 @@ struct BrowserCommands: Commands {
 
         CommandMenu("Desarrollo") {
             Button("Modo desarrollador en este sitio") { browser.perform(.toggleDeveloperMode) }
+                // Como en Arc: Control (no Comando) + D, en cualquier sitio.
+                .keyboardShortcut("d", modifiers: .control)
                 .disabled(browser.selectedTab?.url == nil || browser.selectedTab?.isHome == true)
             Divider()
             Button("Consola") { browser.perform(.toggleConsole) }

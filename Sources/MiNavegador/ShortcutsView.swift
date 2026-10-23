@@ -40,6 +40,13 @@ struct ShortcutsView: View {
             ("Espacio siguiente / anterior", "⌥⌘→ ⌥⌘←"),
             ("Ir al espacio 1–9", "⌃1…9"),
         ]),
+        ("Desarrollo", [
+            ("Entrar o salir del modo desarrollador", "⌃D"),
+            ("Consola", "⌥⌘J"),
+            ("Inspeccionar elemento", "⌥⌘C"),
+            ("Inspector web", "⌥⌘I"),
+            ("Vista móvil", "⇧⌘M"),
+        ]),
     ]
 
     var body: some View {

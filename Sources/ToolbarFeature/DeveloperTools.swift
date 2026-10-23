@@ -51,7 +51,7 @@ struct DeveloperAddress: View {
                     .background(Capsule().fill(DeveloperMode.color))
             }
             .buttonStyle(.plain)
-            .tooltip("Salir del modo desarrollador en este sitio")
+            .tooltip("Salir del modo desarrollador en este sitio", shortcut: "⌃D")
 
             Button { browser.editCurrentTab() } label: {
                 Text(tab.url?.absoluteString ?? "")
