@@ -16,6 +16,8 @@ public final class WebKitEngine: WebEngine {
         configuration = WKWebViewConfiguration()
         // Un solo almacén para todas las pestañas; WebKit comparte los procesos entre ellas.
         configuration.websiteDataStore = .default()
+        // Nos presentamos como Safari: sin esto, webs como Google sirven su versión antigua y básica.
+        configuration.applicationNameForUserAgent = Self.safariUserAgentSuffix
         // Scroll a la frecuencia real de la pantalla (no a ~60 fps) y rueda del ratón animada.
         WebKitFeatures.applySmoothScrolling(to: configuration.preferences)
         // Seguimiento de audio y vídeo de cada página (PiP automático y reproductor lateral).
@@ -32,6 +34,14 @@ public final class WebKitEngine: WebEngine {
         } else {
             extensionsHost = nil
         }
+    }
+
+    /// "Version/27.0 Safari/605.1.15", con la versión de Safari instalada en el Mac.
+    static var safariUserAgentSuffix: String {
+        let info = NSDictionary(contentsOfFile: "/Applications/Safari.app/Contents/Info.plist")
+            ?? NSDictionary(contentsOfFile: "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/Info.plist")
+        let version = info?["CFBundleShortVersionString"] as? String ?? "27.0"
+        return "Version/\(version) Safari/605.1.15"
     }
 
     @available(macOS 15.4, *)

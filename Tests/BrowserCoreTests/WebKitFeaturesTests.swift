@@ -12,3 +12,13 @@ final class WebKitFeaturesTests: XCTestCase {
         XCTAssertFalse(WebKitFeatures.set("NoExiste", enabled: true, on: preferences))
     }
 }
+
+@MainActor
+final class UserAgentTests: XCTestCase {
+    /// Sin la parte de Safari, Google y otras webs sirven versiones antiguas.
+    func testWePresentOurselvesAsSafari() {
+        let suffix = WebKitEngine.safariUserAgentSuffix
+        XCTAssertTrue(suffix.hasPrefix("Version/"))
+        XCTAssertTrue(suffix.hasSuffix("Safari/605.1.15"))
+    }
+}
