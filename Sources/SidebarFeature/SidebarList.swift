@@ -557,7 +557,11 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
     }
 
     @objc func doubleClicked() {
-        guard let table, rows.indices.contains(table.clickedRow), let tab = rows[table.clickedRow].tab else { return }
+        guard let table, rows.indices.contains(table.clickedRow) else { return }
+        // La tabla manda el segundo clic rápido solo como doble clic: en una carpeta cuenta como
+        // otro clic (abrir y cerrar seguido), en una pestaña la renombra.
+        if case .folder = rows[table.clickedRow].kind { return clicked() }
+        guard let tab = rows[table.clickedRow].tab else { return }
         browser.renamingTabID = tab.id
     }
 
