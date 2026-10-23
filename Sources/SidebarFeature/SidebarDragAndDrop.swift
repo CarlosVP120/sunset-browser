@@ -253,7 +253,30 @@ final class SidebarDrag {
 
     @ObservationIgnored private var targets: [UUID: (frame: CGRect, make: (CGSize) -> SidebarDropDelegate)] = [:]
 
-    var isDragging: Bool { payload != nil }
+    /// Zonas que deciden por sí mismas dónde cae lo arrastrado (la lista nativa): reciben el punto
+    /// (relativo a su marco) y devuelven qué hacer al soltar; `indicate` dibuja su propia marca.
+    struct Resolver {
+        var frame: CGRect
+        var resolve: @MainActor (DragPayload, CGPoint) -> (@MainActor () -> Void)?
+        var indicate: @MainActor (CGPoint?, DragPayload?) -> Void
+    }
+
+    @ObservationIgnored private var resolvers: [UUID: Resolver] = [:]
+    @ObservationIgnored private var hoveredResolver: (id: UUID, drop: @MainActor () -> Void)?
+
+    /// Se está arrastrando una fila de la lista nativa (arrastre de AppKit): sirve para mostrar
+    /// el hueco de "primer favorito" igual que con el arrastre propio.
+    var isNativeDragActive = false
+
+    var isDragging: Bool { payload != nil || isNativeDragActive }
+
+    func register(_ id: UUID, resolver: Resolver) {
+        resolvers[id] = resolver
+    }
+
+    func unregisterResolver(_ id: UUID) {
+        resolvers[id] = nil
+    }
 
     func register(_ id: UUID, frame: CGRect, make: @escaping (CGSize) -> SidebarDropDelegate) {
         targets[id] = (frame, make)
@@ -277,12 +300,15 @@ final class SidebarDrag {
 
     func end() {
         defer {
+            for resolver in resolvers.values { resolver.indicate(nil, nil) }
+            hoveredResolver = nil
             withAnimation(Theme.spring) {
                 payload = nil
                 ghost = nil
                 hovered = nil
             }
         }
+        if let drop = hoveredResolver?.drop { return drop() }
         guard let payload, let hovered, let target = targets[hovered.id] else { return }
         target.make(target.frame.size).apply(payload, zone: hovered.zone)
     }
@@ -301,6 +327,21 @@ final class SidebarDrag {
                 break
             }
         }
+        // Si ninguna fila de SwiftUI lo acepta, la lista nativa (si el cursor está encima).
+        var nextResolver: (id: UUID, drop: @MainActor () -> Void)?
+        for (id, resolver) in resolvers {
+            let local = CGPoint(x: location.x - resolver.frame.minX, y: location.y - resolver.frame.minY)
+            if next == nil, resolver.frame.contains(location), let drop = resolver.resolve(payload, local) {
+                nextResolver = (id, drop)
+                resolver.indicate(local, payload)
+            } else {
+                resolver.indicate(nil, nil)
+            }
+        }
+        if (nextResolver == nil) != (hoveredResolver == nil) {
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
+        hoveredResolver = nextResolver
         if next?.id != hovered?.id || next?.zone != hovered?.zone {
             if next != nil { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
             withAnimation(Theme.hoverIn) { hovered = next }

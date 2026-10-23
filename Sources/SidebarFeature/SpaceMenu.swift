@@ -73,6 +73,8 @@ enum SpaceMenu {
 struct SpaceHeader: View {
     let browser: Browser
     let space: Space
+    /// Dentro de la lista nativa: la propia tabla se encarga de soltar cosas y del menú contextual.
+    var inList = false
     @State private var newName = ""
     @State private var isHovering = false
     @State private var isMenuHovering = false
@@ -151,7 +153,7 @@ struct SpaceHeader: View {
         .onTapGesture(count: 2) { browser.spaceEditor = SpaceEditorRequest(spaceID: space.id, kind: .rename) }
         .onTapGesture { withAnimation(Theme.spring) { browser.togglePinnedSection(space) } }
         .tooltip(space.isPinnedCollapsed ? "Mostrar fijadas" : "Plegar fijadas")
-        .nativeContextMenu { SpaceMenu.entries(browser: browser, space: space) }
+        .modifier(SpaceHeaderMenu(browser: browser, space: space, isEnabled: !inList))
         .popover(isPresented: binding(.theme), arrowEdge: .trailing) {
             ThemeEditor(browser: browser, space: space)
         }
@@ -248,5 +250,20 @@ enum TextPrompt {
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let name = field.stringValue.trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? nil : name
+    }
+}
+
+/// El menú contextual de la cabecera (fuera de la lista nativa, que pone el suyo).
+private struct SpaceHeaderMenu: ViewModifier {
+    let browser: Browser
+    let space: Space
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.nativeContextMenu { SpaceMenu.entries(browser: browser, space: space) }
+        } else {
+            content
+        }
     }
 }

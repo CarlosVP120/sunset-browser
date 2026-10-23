@@ -15,13 +15,16 @@ private struct TooltipModifier: ViewModifier {
     /// lateral se anima, y como @State obligaba a redibujar cada fila en cada fotograma.
     @State private var box = FrameBox()
     @State private var id = UUID()
+    @Environment(\.tooltipOrigin) private var origin
 
     func body(content: Content) -> some View {
         content
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.frame = $0 }
             .onHover { hovering in
                 if hovering {
-                    TooltipController.shared.show(text: text, shortcut: shortcut, below: box.frame, owner: id)
+                    let offset = origin?.offset() ?? .zero
+                    TooltipController.shared.show(text: text, shortcut: shortcut,
+                                                  below: box.frame.offsetBy(dx: offset.x, dy: offset.y), owner: id)
                 } else {
                     TooltipController.shared.hide(owner: id)
                 }
@@ -30,6 +33,28 @@ private struct TooltipModifier: ViewModifier {
             .simultaneousGesture(TapGesture().onEnded { TooltipController.shared.hide(owner: id) })
             .onDisappear { TooltipController.shared.hide(owner: id) }
             .accessibilityHint(shortcut.map { "\(text) (\($0))" } ?? text)
+    }
+}
+
+/// Para vistas de SwiftUI metidas dentro de AppKit (la cabecera en la lista nativa): sus
+/// coordenadas "globales" son las de su propio NSHostingView, no las de la ventana. Esto dice
+/// dónde está ese NSHostingView, para colocar bien los tooltips.
+public struct TooltipOrigin {
+    let offset: @MainActor () -> CGPoint
+
+    public init(_ offset: @escaping @MainActor () -> CGPoint) {
+        self.offset = offset
+    }
+}
+
+private struct TooltipOriginKey: EnvironmentKey {
+    static let defaultValue: TooltipOrigin? = nil
+}
+
+public extension EnvironmentValues {
+    var tooltipOrigin: TooltipOrigin? {
+        get { self[TooltipOriginKey.self] }
+        set { self[TooltipOriginKey.self] = newValue }
     }
 }
 
@@ -205,5 +230,23 @@ public struct ShortcutKeys: View {
                     )
             }
         }
+    }
+}
+
+/// Tooltips para vistas de AppKit (la lista de la barra lateral), con el mismo aspecto y
+/// comportamiento que `.tooltip()` de SwiftUI.
+@MainActor
+public enum Tooltips {
+    public static func show(_ text: String, shortcut: String? = nil, for view: NSView, owner: UUID) {
+        guard let window = view.window, let contentView = window.contentView else { return }
+        let rect = view.convert(view.bounds, to: contentView)
+        // `present` espera coordenadas con el origen arriba a la izquierda (como SwiftUI).
+        let frame = contentView.isFlipped ? rect
+            : CGRect(x: rect.minX, y: contentView.bounds.height - rect.maxY, width: rect.width, height: rect.height)
+        TooltipController.shared.show(text: text, shortcut: shortcut, below: frame, owner: owner)
+    }
+
+    public static func hide(owner: UUID) {
+        TooltipController.shared.hide(owner: owner)
     }
 }

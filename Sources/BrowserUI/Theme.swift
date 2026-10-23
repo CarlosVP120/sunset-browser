@@ -33,6 +33,13 @@ public extension Color {
     }
 }
 
+public extension NSColor {
+    /// El mismo color que `Color(SpaceColor)`, para vistas de AppKit.
+    convenience init(_ color: SpaceColor) {
+        self.init(srgbRed: color.red, green: color.green, blue: color.blue, alpha: color.alpha)
+    }
+}
+
 private struct SpaceThemeKey: EnvironmentKey {
     static let defaultValue = SpaceTheme.default
 }
