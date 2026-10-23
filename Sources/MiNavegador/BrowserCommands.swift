@@ -35,70 +35,70 @@ struct BrowserCommands: Commands {
                     Divider()
                     Button("Cerrar pestaña") { browser.closeSelectedTab() }
                         .keyboardShortcut("w")
+                }
+            }
+
+            CommandGroup(replacing: .saveItem) {}
+
+            CommandGroup(after: .pasteboard) {
+                Divider()
+                Button("Copiar URL") { browser.perform(.copyURL) }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                Button("Copiar URL como Markdown") { browser.perform(.copyURLAsMarkdown) }
+                    .keyboardShortcut("c", modifiers: [.command, .shift, .option])
+            }
+
+            CommandGroup(replacing: .textEditing) {
+                Button("Buscar en la página…") { browser.showFindBar() }
+                    .keyboardShortcut("f")
+                Button("Buscar siguiente") { browser.findNext() }
+                    .keyboardShortcut("g")
+                Button("Buscar anterior") { browser.findPrevious() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+            }
+
+            CommandGroup(before: .sidebar) {
+                Button(browser.showsSidebar ? "Ocultar barra lateral" : "Mostrar barra lateral") {
+                    withAnimation(.easeInOut(duration: 0.2)) { browser.showsSidebar.toggle() }
+                }
+                .keyboardShortcut("s")
+                Button(browser.showsLibrary ? "Cerrar la Librería" : "Abrir la Librería") {
+                    if browser.showsLibrary { browser.showsLibrary = false } else { browser.perform(.showLibrary) }
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button("Descargas") { browser.perform(.showDownloads) }
+                    .keyboardShortcut("l", modifiers: [.command, .option])
+                Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
+                    browser.showsToolbar.toggle()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+                Divider()
+            }
+
+            CommandGroup(after: .toolbar) {
+                Button("Acercar") { browser.zoomIn() }
+                    .keyboardShortcut("+")
+                Button("Acercar") { browser.zoomIn() }
+                    .keyboardShortcut("=")
+                Button("Alejar") { browser.zoomOut() }
+                    .keyboardShortcut("-")
+                Button("Tamaño real") { browser.resetZoom() }
+                    .keyboardShortcut("0")
+                Divider()
+            }
+
+            CommandGroup(replacing: .help) {
+                Button("Atajos de teclado") { browser.showsShortcuts = true }
+                    .keyboardShortcut("/", modifiers: .command)
+                Button("Mostrar la bienvenida") { browser.welcome = .full }
+            }
+
+            CommandGroup(after: .importExport) {
+                Button("Importar de otro navegador…") { browser.welcome = .importOnly }
+                Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
             }
         }
 
-        CommandGroup(replacing: .saveItem) {}
-
-        CommandGroup(after: .pasteboard) {
-            Divider()
-            Button("Copiar URL") { browser.perform(.copyURL) }
-                .keyboardShortcut("c", modifiers: [.command, .shift])
-            Button("Copiar URL como Markdown") { browser.perform(.copyURLAsMarkdown) }
-                .keyboardShortcut("c", modifiers: [.command, .shift, .option])
-        }
-
-        CommandGroup(replacing: .textEditing) {
-            Button("Buscar en la página…") { browser.showFindBar() }
-                .keyboardShortcut("f")
-            Button("Buscar siguiente") { browser.findNext() }
-                .keyboardShortcut("g")
-            Button("Buscar anterior") { browser.findPrevious() }
-                .keyboardShortcut("g", modifiers: [.command, .shift])
-        }
-
-        CommandGroup(before: .sidebar) {
-            Button(browser.showsSidebar ? "Ocultar barra lateral" : "Mostrar barra lateral") {
-                withAnimation(.easeInOut(duration: 0.2)) { browser.showsSidebar.toggle() }
-            }
-            .keyboardShortcut("s")
-            Button(browser.showsLibrary ? "Cerrar la Librería" : "Abrir la Librería") {
-                if browser.showsLibrary { browser.showsLibrary = false } else { browser.perform(.showLibrary) }
-            }
-            .keyboardShortcut("l", modifiers: [.command, .shift])
-            Button("Descargas") { browser.perform(.showDownloads) }
-                .keyboardShortcut("l", modifiers: [.command, .option])
-            Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
-                browser.showsToolbar.toggle()
-            }
-            .keyboardShortcut("t", modifiers: [.command, .option])
-            Divider()
-        }
-
-        CommandGroup(after: .toolbar) {
-            Button("Acercar") { browser.zoomIn() }
-                .keyboardShortcut("+")
-            Button("Acercar") { browser.zoomIn() }
-                .keyboardShortcut("=")
-            Button("Alejar") { browser.zoomOut() }
-                .keyboardShortcut("-")
-            Button("Tamaño real") { browser.resetZoom() }
-                .keyboardShortcut("0")
-            Divider()
-        }
-
-        CommandGroup(replacing: .help) {
-            Button("Atajos de teclado") { browser.showsShortcuts = true }
-                .keyboardShortcut("/", modifiers: .command)
-            Button("Mostrar la bienvenida") { browser.welcome = .full }
-        }
-
-        CommandGroup(after: .importExport) {
-            Button("Importar de otro navegador…") { browser.welcome = .importOnly }
-            Button("Volver a importar desde Arc") { try? browser.reimportFromArc() }
-        }
-
-        }
         Group {
             CommandMenu("Desarrollo") {
                 Button("Modo desarrollador en este sitio") { browser.perform(.toggleDeveloperMode) }
@@ -119,106 +119,106 @@ struct BrowserCommands: Commands {
                 Button("Vista móvil") { browser.perform(.toggleResponsive) }
                     .keyboardShortcut("m", modifiers: [.command, .shift])
                     .disabled(browser.selectedTab?.isDeveloperMode != true)
-        }
+            }
 
-        CommandMenu("Navegación") {
-            Button("Atrás") { browser.selectedTab?.goBack() }
-                .keyboardShortcut("[")
-            Button("Adelante") { browser.selectedTab?.goForward() }
-                .keyboardShortcut("]")
-            Divider()
-            Button("Recargar") { browser.selectedTab?.reload() }
-                .keyboardShortcut("r")
-            Button("Recarga forzada") { browser.selectedTab?.reloadIgnoringCache() }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-            Button("Recarga forzada") { browser.selectedTab?.reloadIgnoringCache() }
-                .keyboardShortcut("r", modifiers: [.control, .shift])
-            Button("Imagen en imagen") { browser.perform(.pictureInPicture) }
-                .keyboardShortcut("p", modifiers: [.command, .control])
-            Toggle("Imagen en imagen automática", isOn: Binding(
-                get: { browser.autoPictureInPicture },
-                set: { browser.autoPictureInPicture = $0 }
-            ))
-            Group {
+            CommandMenu("Navegación") {
+                Button("Atrás") { browser.selectedTab?.goBack() }
+                    .keyboardShortcut("[")
+                Button("Adelante") { browser.selectedTab?.goForward() }
+                    .keyboardShortcut("]")
                 Divider()
-                Button("Detener") { browser.selectedTab?.stopLoading() }
-                    .keyboardShortcut(".")
-                    .disabled(browser.selectedTab?.isLoading != true)
-                Divider()
-                Button("Historial") { browser.newTab() }
-                    .keyboardShortcut("y")
-                Button("Buscar pestañas…") { browser.newTab() }
-                    .keyboardShortcut("a", modifiers: [.command, .shift])
-            }
-        }
-
-        CommandMenu("Pestañas") {
-            Button("Pestaña siguiente") { browser.selectAdjacentTab(1) }
-                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
-            Button("Pestaña anterior") { browser.selectAdjacentTab(-1) }
-                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
-            Button("Pestaña siguiente") { browser.selectAdjacentTab(1) }
-                .keyboardShortcut("]", modifiers: [.command, .shift])
-            Button("Pestaña anterior") { browser.selectAdjacentTab(-1) }
-                .keyboardShortcut("[", modifiers: [.command, .shift])
-            Button("Última pestaña usada") { browser.selectRecentTab() }
-                .keyboardShortcut(.tab, modifiers: .control)
-            Divider()
-            ForEach(1..<9) { number in
-                Button("Ir a la pestaña \(number)") { browser.selectTab(at: number - 1) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(number)")))
-            }
-            Group {
-                Button("Ir a la última pestaña") { browser.selectLastTab() }
-                    .keyboardShortcut("9")
-                Divider()
-                Button("Fijar / desfijar pestaña") {
-                    if let tab = browser.selectedTab { browser.togglePin(tab) }
-            }
-            .keyboardShortcut("d")
-            Button("Añadir a favoritos") {
-                if let tab = browser.selectedTab { browser.addToFavorites(tab) }
-            }
-            }
-        }
-
-        CommandMenu("Espacios") {
-            Button("Espacio siguiente") { browser.activateAdjacentSpace(1) }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
-            Button("Espacio anterior") { browser.activateAdjacentSpace(-1) }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-            Divider()
-            Button("Editar color del tema…") {
-                browser.spaceEditor = SpaceEditorRequest(spaceID: browser.activeSpaceID, kind: .theme)
-            }
-            Button("Renombrar espacio…") {
-                browser.spaceEditor = SpaceEditorRequest(spaceID: browser.activeSpaceID, kind: .rename)
-            }
-            Button("Gestionar espacios…") { browser.showsSpaceManager = true }
-            Divider()
-            ForEach(Array(browser.spaces.prefix(9).enumerated()), id: \.element.id) { index, space in
-                Button(space.name) { browser.activate(space) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .control)
-            }
-        }
-
-        CommandMenu("Extensiones") {
-            if #available(macOS 15.4, *) {
-                let host = engine.extensions
-                let storeID = WebExtensionsHost.chromeWebStoreID(from: browser.selectedTab?.url)
-                Button("Añadir esta extensión desde Chrome Web Store") {
-                    if let storeID { Task { await host.installFromChromeWebStore(id: storeID) } }
+                Button("Recargar") { browser.selectedTab?.reload() }
+                    .keyboardShortcut("r")
+                Button("Recarga forzada") { browser.selectedTab?.reloadIgnoringCache() }
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("Recarga forzada") { browser.selectedTab?.reloadIgnoringCache() }
+                    .keyboardShortcut("r", modifiers: [.control, .shift])
+                Button("Imagen en imagen") { browser.perform(.pictureInPicture) }
+                    .keyboardShortcut("p", modifiers: [.command, .control])
+                Toggle("Imagen en imagen automática", isOn: Binding(
+                    get: { browser.autoPictureInPicture },
+                    set: { browser.autoPictureInPicture = $0 }
+                ))
+                Group {
+                    Divider()
+                    Button("Detener") { browser.selectedTab?.stopLoading() }
+                        .keyboardShortcut(".")
+                        .disabled(browser.selectedTab?.isLoading != true)
+                    Divider()
+                    Button("Historial") { browser.newTab() }
+                        .keyboardShortcut("y")
+                    Button("Buscar pestañas…") { browser.newTab() }
+                        .keyboardShortcut("a", modifiers: [.command, .shift])
                 }
-                .disabled(storeID == nil)
-                Button("Instalar desde archivo…") { ExtensionInstaller.chooseFile(host: host) }
-                Divider()
-                Button("Abrir Chrome Web Store") {
-                    browser.openTab(URL(string: "https://chromewebstore.google.com/")!)
-                }
-            } else {
-                Text("Las extensiones necesitan macOS 15.4 o posterior")
             }
-        }
+
+            CommandMenu("Pestañas") {
+                Button("Pestaña siguiente") { browser.selectAdjacentTab(1) }
+                    .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                Button("Pestaña anterior") { browser.selectAdjacentTab(-1) }
+                    .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                Button("Pestaña siguiente") { browser.selectAdjacentTab(1) }
+                    .keyboardShortcut("]", modifiers: [.command, .shift])
+                Button("Pestaña anterior") { browser.selectAdjacentTab(-1) }
+                    .keyboardShortcut("[", modifiers: [.command, .shift])
+                Button("Última pestaña usada") { browser.selectRecentTab() }
+                    .keyboardShortcut(.tab, modifiers: .control)
+                Divider()
+                ForEach(1..<9) { number in
+                    Button("Ir a la pestaña \(number)") { browser.selectTab(at: number - 1) }
+                        .keyboardShortcut(KeyEquivalent(Character("\(number)")))
+                }
+                Group {
+                    Button("Ir a la última pestaña") { browser.selectLastTab() }
+                        .keyboardShortcut("9")
+                    Divider()
+                    Button("Fijar / desfijar pestaña") {
+                        if let tab = browser.selectedTab { browser.togglePin(tab) }
+                    }
+                    .keyboardShortcut("d")
+                    Button("Añadir a favoritos") {
+                        if let tab = browser.selectedTab { browser.addToFavorites(tab) }
+                    }
+                }
+            }
+
+            CommandMenu("Espacios") {
+                Button("Espacio siguiente") { browser.activateAdjacentSpace(1) }
+                    .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                Button("Espacio anterior") { browser.activateAdjacentSpace(-1) }
+                    .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                Divider()
+                Button("Editar color del tema…") {
+                    browser.spaceEditor = SpaceEditorRequest(spaceID: browser.activeSpaceID, kind: .theme)
+                }
+                Button("Renombrar espacio…") {
+                    browser.spaceEditor = SpaceEditorRequest(spaceID: browser.activeSpaceID, kind: .rename)
+                }
+                Button("Gestionar espacios…") { browser.showsSpaceManager = true }
+                Divider()
+                ForEach(Array(browser.spaces.prefix(9).enumerated()), id: \.element.id) { index, space in
+                    Button(space.name) { browser.activate(space) }
+                        .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .control)
+                }
+            }
+
+            CommandMenu("Extensiones") {
+                if #available(macOS 15.4, *) {
+                    let host = engine.extensions
+                    let storeID = WebExtensionsHost.chromeWebStoreID(from: browser.selectedTab?.url)
+                    Button("Añadir esta extensión desde Chrome Web Store") {
+                        if let storeID { Task { await host.installFromChromeWebStore(id: storeID) } }
+                    }
+                    .disabled(storeID == nil)
+                    Button("Instalar desde archivo…") { ExtensionInstaller.chooseFile(host: host) }
+                    Divider()
+                    Button("Abrir Chrome Web Store") {
+                        browser.openTab(URL(string: "https://chromewebstore.google.com/")!)
+                    }
+                } else {
+                    Text("Las extensiones necesitan macOS 15.4 o posterior")
+                }
+            }
         }
     }
 }
