@@ -194,15 +194,20 @@ public final class Onboarding {
     struct App: Identifiable {
         let name: String
         let url: URL
+        /// Icono del sitio. Gmail y Calendar comparten dominio con Google: sin el suyo, saldría la "G".
+        let icon: URL?
         var id: String { name }
     }
 
     static let apps: [App] = [
-        ("X", "https://x.com"), ("Gmail", "https://mail.google.com"), ("Calendar", "https://calendar.google.com"),
-        ("YouTube", "https://www.youtube.com"), ("WhatsApp", "https://web.whatsapp.com"), ("Notion", "https://www.notion.so"),
-        ("Slack", "https://app.slack.com"), ("Figma", "https://www.figma.com"), ("Spotify", "https://open.spotify.com"),
-        ("ChatGPT", "https://chatgpt.com"), ("GitHub", "https://github.com"), ("Outlook", "https://outlook.live.com"),
-    ].map { App(name: $0.0, url: URL(string: $0.1)!) }
+        ("X", "https://x.com", nil),
+        ("Gmail", "https://mail.google.com", "https://ssl.gstatic.com/ui/v1/icons/mail/images/favicon_gmail_2026_v2.ico"),
+        ("Calendar", "https://calendar.google.com", "https://calendar.google.com/googlecalendar/images/favicons_2020q4/calendar_31.ico"),
+        ("YouTube", "https://www.youtube.com", nil), ("WhatsApp", "https://web.whatsapp.com", nil),
+        ("Notion", "https://www.notion.so", nil), ("Slack", "https://app.slack.com", nil), ("Figma", "https://www.figma.com", nil),
+        ("Spotify", "https://open.spotify.com", nil), ("ChatGPT", "https://chatgpt.com", nil),
+        ("GitHub", "https://github.com", nil), ("Outlook", "https://outlook.live.com", nil),
+    ].map { App(name: $0.0, url: URL(string: $0.1)!, icon: $0.2.flatMap(URL.init(string:))) }
 
     func toggle(_ app: App) {
         if selectedApps.contains(app.id) { selectedApps.remove(app.id) } else { selectedApps.insert(app.id) }

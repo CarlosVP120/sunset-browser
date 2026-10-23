@@ -35,9 +35,12 @@ public final class FaviconCache {
         requested[host] = candidate
 
         let file = directory.appending(path: host)
+        // Junto al icono se guarda de dónde salió: si la página declara otro, se vuelve a descargar.
+        let sourceFile = directory.appending(path: host + ".source")
         if previous == nil, let data = try? Data(contentsOf: file), let image = NSImage(data: data) {
             images[host] = image
-            return
+            let source = (try? String(contentsOf: sourceFile, encoding: .utf8)).flatMap(URL.init(string:))
+            if iconURL == nil || source == candidate { return }
         }
 
         guard let (data, response) = try? await URLSession.shared.data(from: candidate),
@@ -46,6 +49,7 @@ public final class FaviconCache {
         else { return }
         images[host] = image
         try? data.write(to: file, options: .atomic)
+        try? candidate.absoluteString.write(to: sourceFile, atomically: true, encoding: .utf8)
     }
 }
 

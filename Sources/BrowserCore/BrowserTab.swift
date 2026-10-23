@@ -24,7 +24,7 @@ public final class BrowserTab: Identifiable {
     public private(set) var mediaPosition: MediaPosition?
     /// La página en memoria; `nil` mientras la pestaña está hibernada.
     public private(set) var page: WebPage?
-    public private(set) var lastActiveAt = Date()
+    public internal(set) var lastActiveAt = Date()
     /// La dirección "de casa" de una pestaña fijada o favorita (como en Arc): puedes navegar
     /// desde ella, pero al cerrarla vuelve aquí. `nil` en las pestañas normales.
     public internal(set) var pinnedURL: URL?

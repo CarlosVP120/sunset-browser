@@ -65,6 +65,8 @@ struct SidebarDropDelegate: DropDelegate {
     let location: @MainActor (DropZone) -> DropLocation?
     /// Índice en la sección fijada para una carpeta arrastrada (nil si aquí no caben carpetas).
     var folderIndex: @MainActor (DropZone) -> Int? = { _ in nil }
+    /// En vez de colocarla en una posición, hace algo con la pestaña (soltarla en el icono de un espacio).
+    var onTab: (@MainActor (BrowserTab) -> Void)? = nil
     @Binding var zone: DropZone?
 
     func validateDrop(info: DropInfo) -> Bool {
@@ -87,22 +89,36 @@ struct SidebarDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         let zone = currentZone(info)
         withAnimation(Theme.hoverOut) { self.zone = nil }
-        DragPayload.load(from: info) { payload in
-            withAnimation(Theme.spring) {
-                switch payload {
-                case .tab(let id):
-                    guard let tab = browser.tab(withID: id), let target = location(zone) else { return }
-                    browser.move(tab, to: target)
-                case .folder(let id):
-                    guard let folder = browser.folder(withID: id), let index = folderIndex(zone) else { return }
-                    browser.move(folder, toPinnedIndex: index)
-                case .url(let url):
-                    guard let target = location(zone) else { return }
-                    browser.open(url, at: target)
-                }
+        DragPayload.load(from: info) { payload in apply(payload, zone: zone) }
+        return true
+    }
+
+    /// ¿Esta fila acepta lo que se arrastra? (Las carpetas solo caben entre las fijadas.)
+    @MainActor
+    func accepts(_ payload: DragPayload, zone: DropZone) -> Bool {
+        if case .folder = payload { return folderIndex(zone) != nil }
+        if onTab != nil, case .tab = payload { return true }
+        return location(zone) != nil
+    }
+
+    /// Coloca lo soltado según la zona.
+    @MainActor
+    func apply(_ payload: DragPayload, zone: DropZone) {
+        withAnimation(Theme.spring) {
+            switch payload {
+            case .tab(let id):
+                guard let tab = browser.tab(withID: id) else { return }
+                if let onTab { return onTab(tab) }
+                guard let target = location(zone) else { return }
+                browser.move(tab, to: target)
+            case .folder(let id):
+                guard let folder = browser.folder(withID: id), let index = folderIndex(zone) else { return }
+                browser.move(folder, toPinnedIndex: index)
+            case .url(let url):
+                guard let target = location(zone) else { return }
+                browser.open(url, at: target)
             }
         }
-        return true
     }
 
     private func update(_ info: DropInfo) {
@@ -111,7 +127,12 @@ struct SidebarDropDelegate: DropDelegate {
     }
 
     private func currentZone(_ info: DropInfo) -> DropZone {
-        let position = horizontal ? info.location.x / max(size.width, 1) : info.location.y / max(size.height, 1)
+        zone(at: info.location)
+    }
+
+    /// Zona según un punto dentro de la fila.
+    func zone(at point: CGPoint) -> DropZone {
+        let position = horizontal ? point.x / max(size.width, 1) : point.y / max(size.height, 1)
         if acceptsInside {
             if position < 0.28 { return .before }
             if position > 0.72 { return .after }
@@ -161,15 +182,174 @@ private struct SidebarDropTargetModifier: ViewModifier {
     let horizontal: Bool
     @State private var zone: DropZone?
     @State private var size: CGSize = .zero
+    @State private var id = UUID()
+    @Environment(SidebarDrag.self) private var drag
+
+    func body(content: Content) -> some View {
+        let dragZone = drag.hovered?.id == id ? drag.hovered?.zone : nil
+        content
+            .background(GeometryReader { proxy in
+                let frame = proxy.frame(in: .named(SidebarDrag.space))
+                Color.clear
+                    .onAppear {
+                        size = proxy.size
+                        register(frame)
+                    }
+                    .onChange(of: frame) { _, newFrame in
+                        size = newFrame.size
+                        register(newFrame)
+                    }
+            })
+            .overlay(DropIndicator(zone: zone ?? dragZone, horizontal: horizontal))
+            // Lo que llega desde fuera de la app (enlaces de otras apps).
+            .onDrop(of: [.text, .url], delegate: makeDelegate(size, $zone))
+            .onDisappear { drag.unregister(id) }
+    }
+
+    private func register(_ frame: CGRect) {
+        let makeDelegate = makeDelegate
+        drag.register(id, frame: frame) { size in makeDelegate(size, .constant(nil)) }
+    }
+}
+
+// MARK: - Arrastre dentro de la barra lateral
+
+/// Arrastrar pestañas y carpetas dentro de la barra lateral, como en Arc: lo que arrastras
+/// sigue al cursor y una línea marca dónde caerá (favoritos, fijadas, carpetas, Hoy o los
+/// iconos de espacios). Funciona con el gesto del ratón (no con el portapapeles de arrastre),
+/// así responde al instante y no depende de dónde empiece el clic.
+@MainActor
+@Observable
+final class SidebarDrag {
+    static let space = "sidebar-drag"
+
+    struct Ghost {
+        let pageURL: URL?
+        let faviconURL: URL?
+        let title: String
+        let symbol: String?
+    }
+
+    private(set) var payload: DragPayload?
+    private(set) var ghost: Ghost?
+    private(set) var location: CGPoint = .zero
+    private(set) var hovered: (id: UUID, zone: DropZone)?
+
+    @ObservationIgnored private var targets: [UUID: (frame: CGRect, make: (CGSize) -> SidebarDropDelegate)] = [:]
+
+    var isDragging: Bool { payload != nil }
+
+    func register(_ id: UUID, frame: CGRect, make: @escaping (CGSize) -> SidebarDropDelegate) {
+        targets[id] = (frame, make)
+    }
+
+    func unregister(_ id: UUID) {
+        targets[id] = nil
+    }
+
+    func move(_ payload: DragPayload, ghost: Ghost, to point: CGPoint) {
+        if self.payload == nil {
+            withAnimation(Theme.pressSpring) {
+                self.payload = payload
+                self.ghost = ghost
+            }
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
+        location = point
+        updateHovered()
+    }
+
+    func end() {
+        defer {
+            withAnimation(Theme.spring) {
+                payload = nil
+                ghost = nil
+                hovered = nil
+            }
+        }
+        guard let payload, let hovered, let target = targets[hovered.id] else { return }
+        target.make(target.frame.size).apply(payload, zone: hovered.zone)
+    }
+
+    private func updateHovered() {
+        guard let payload else { return }
+        // La fila más pequeña bajo el cursor (una pestaña dentro de una carpeta antes que la carpeta).
+        let candidates = targets.filter { $0.value.frame.insetBy(dx: -2, dy: -2).contains(location) }
+            .sorted { $0.value.frame.width * $0.value.frame.height < $1.value.frame.width * $1.value.frame.height }
+        var next: (id: UUID, zone: DropZone)?
+        for (id, target) in candidates {
+            let delegate = target.make(target.frame.size)
+            let zone = delegate.zone(at: CGPoint(x: location.x - target.frame.minX, y: location.y - target.frame.minY))
+            if delegate.accepts(payload, zone: zone) {
+                next = (id, zone)
+                break
+            }
+        }
+        if next?.id != hovered?.id || next?.zone != hovered?.zone {
+            if next != nil { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+            withAnimation(Theme.hoverIn) { hovered = next }
+        }
+    }
+}
+
+extension View {
+    /// Permite arrastrar esta fila dentro de la barra lateral.
+    func sidebarDraggable(_ payload: DragPayload, ghost: @escaping () -> SidebarDrag.Ghost) -> some View {
+        modifier(SidebarDraggableModifier(payload: payload, ghost: ghost))
+    }
+}
+
+private struct SidebarDraggableModifier: ViewModifier {
+    let payload: DragPayload
+    let ghost: () -> SidebarDrag.Ghost
+    @Environment(SidebarDrag.self) private var drag
+
+    private var isBeingDragged: Bool {
+        switch (drag.payload, payload) {
+        case (.tab(let a), .tab(let b)), (.folder(let a), .folder(let b)): a == b
+        default: false
+        }
+    }
 
     func body(content: Content) -> some View {
         content
-            .background(GeometryReader { proxy in
-                Color.clear
-                    .onAppear { size = proxy.size }
-                    .onChange(of: proxy.size) { size = proxy.size }
-            })
-            .overlay(DropIndicator(zone: zone, horizontal: horizontal))
-            .onDrop(of: [.text, .url], delegate: makeDelegate(size, $zone))
+            .opacity(isBeingDragged ? 0.35 : 1)
+            .scaleEffect(isBeingDragged ? 0.97 : 1)
+            .animation(Theme.pressSpring, value: isBeingDragged)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 5, coordinateSpace: .named(SidebarDrag.space))
+                    .onChanged { value in drag.move(payload, ghost: ghost(), to: value.location) }
+                    .onEnded { _ in drag.end() }
+            )
+    }
+}
+
+/// Lo que se ve bajo el cursor mientras arrastras: la pestaña "levantada", con sombra.
+struct DragGhost: View {
+    let ghost: SidebarDrag.Ghost
+    @Environment(\.spaceTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let symbol = ghost.symbol {
+                Image(systemName: symbol).font(.system(size: 12)).frame(width: 16)
+            } else {
+                FaviconView(pageURL: ghost.pageURL, faviconURL: ghost.faviconURL, size: 16)
+            }
+            Text(ghost.title)
+                .font(.system(size: 13, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color(theme.title))
+        .padding(.horizontal, 10)
+        .frame(height: 34)
+        .frame(maxWidth: 220, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .fill(Color(theme.focus))
+                .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
+        )
+        .rotationEffect(.degrees(-1.5))
+        .allowsHitTesting(false)
     }
 }

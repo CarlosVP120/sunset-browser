@@ -29,6 +29,10 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
         configuration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: FaviconScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
+        configuration.userContentController.add(mediaRouter, name: FaviconScript.handlerName)
         autofill.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
@@ -74,6 +78,10 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.add(mediaRouter, name: MediaScript.handlerName)
+            profileConfiguration.userContentController.addUserScript(
+                WKUserScript(source: FaviconScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
+            profileConfiguration.userContentController.add(mediaRouter, name: FaviconScript.handlerName)
             autofill.install(in: profileConfiguration.userContentController)
         }
         profileConfigurations[profile] = profileConfiguration
@@ -141,13 +149,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         set { webView.pageZoom = newValue }
     }
 
-    private static let faviconScript = """
-    (() => {
-      const links = [...document.querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']")];
-      const best = links.find(l => (l.getAttribute('rel') || '').includes('apple-touch-icon')) || links[0];
-      return best ? best.href : null;
-    })()
-    """
+    private static let faviconScript = "window.__sunsetFavicon ? window.__sunsetFavicon() : null"
 
     private weak var downloads: DownloadManager?
 
@@ -323,6 +325,14 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         }
     }
 
+    /// La página cambió su icono (Gmail lo hace al llegar correos: el número de no leídos).
+    func receiveFavicon(_ href: String?) {
+        let url = href.flatMap(URL.init(string:))
+        guard let url, url != faviconURL else { return }
+        faviconURL = url
+        notifyChange()
+    }
+
     private func notifyChange() {
         onChange?(WebPageSnapshot(
             title: webView.title ?? "",
@@ -350,6 +360,10 @@ final class MediaMessageRouter: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let webView = message.webView, let page = pages[ObjectIdentifier(webView)]?.page else { return }
-        page.receiveMediaMessage(message.body)
+        if message.name == FaviconScript.handlerName {
+            page.receiveFavicon(message.body as? String)
+        } else {
+            page.receiveMediaMessage(message.body)
+        }
     }
 }

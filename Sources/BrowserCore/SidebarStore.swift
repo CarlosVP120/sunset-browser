@@ -10,6 +10,8 @@ public struct SidebarSnapshot: Codable, Equatable, Sendable {
         public var customTitle: String?
         /// Dirección fijada (pestañas fijadas y favoritas).
         public var pinnedURL: URL? = nil
+        /// Última vez que se usó (para "hace 2 días" en la vista previa de carpetas).
+        public var lastActiveAt: Date? = nil
     }
 
     public struct FolderRecord: Codable, Equatable, Sendable {

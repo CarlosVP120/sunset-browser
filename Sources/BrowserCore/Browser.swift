@@ -635,7 +635,7 @@ public final class Browser {
     func snapshot() -> SidebarSnapshot {
         func record(_ tab: BrowserTab) -> SidebarSnapshot.TabRecord {
             .init(id: tab.id, url: tab.url, title: tab.title, faviconURL: tab.faviconURL, customTitle: tab.customTitle,
-                  pinnedURL: tab.pinnedURL)
+                  pinnedURL: tab.pinnedURL, lastActiveAt: tab.lastActiveAt)
         }
         return SidebarSnapshot(
             favorites: favorites.map(record),
@@ -671,6 +671,8 @@ public final class Browser {
             let tab = makeTab(url: record.url, id: record.id, title: record.title, faviconURL: record.faviconURL)
             tab.customTitle = record.customTitle
             tab.pinnedURL = record.pinnedURL
+            // Sin fecha guardada (pestañas de antes o importadas) no se inventa una: queda "sin uso conocido".
+            tab.lastActiveAt = record.lastActiveAt ?? .distantPast
             return tab
         }
         favorites = snapshot.favorites.map(tab)

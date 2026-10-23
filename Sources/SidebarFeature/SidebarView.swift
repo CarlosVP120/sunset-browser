@@ -12,6 +12,7 @@ public struct SidebarView: View {
     /// Hacia dónde se desliza el contenido al cambiar de espacio.
     @State private var spaceTransitionEdge: Edge = .trailing
     @State private var isScrolled = false
+    @State private var drag = SidebarDrag()
     @Environment(\.spaceTheme) private var theme
 
     private static let topID = "sidebar-top"
@@ -34,10 +35,15 @@ public struct SidebarView: View {
                     .padding(.bottom, 8)
             }
 
-            // Los favoritos no se mueven al hacer scroll (como en Arc).
+            // Los favoritos no se mueven al hacer scroll (como en Arc). Si aún no hay, al arrastrar
+            // aparece un hueco para soltar ahí la primera.
             if !browser.favorites.isEmpty {
                 FavoritesGrid(browser: browser)
                     .padding(.bottom, 10)
+            } else if drag.isDragging {
+                EmptyFavoritesDrop(browser: browser)
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
             }
 
             ScrollViewReader { proxy in
@@ -95,6 +101,16 @@ public struct SidebarView: View {
             BottomBar(browser: browser, libraryButton: libraryButton)
         }
         .padding(.horizontal, 8)
+        .coordinateSpace(name: SidebarDrag.space)
+        .overlay(alignment: .topLeading) {
+            if let ghost = drag.ghost {
+                DragGhost(ghost: ghost)
+                    .offset(x: drag.location.x - 24, y: drag.location.y - 17)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
+        }
+        .environment(drag)
+        .animation(Theme.spring, value: drag.isDragging)
         .environment(\.colorScheme, theme.isDark ? .dark : .light)
         .onChange(of: browser.activeSpaceID) { oldID, newID in
             let oldIndex = browser.spaces.firstIndex { $0.id == oldID } ?? 0
@@ -281,7 +297,7 @@ private struct FavoriteTile: View {
         }
         .buttonStyle(FavoriteTileStyle(isSelected: isSelected))
         .tooltip(tab.displayTitle)
-        .onDrag { DragPayload.provider(for: tab) }
+        .sidebarDraggable(.tab(tab.id)) { .init(pageURL: tab.url, faviconURL: tab.faviconURL, title: tab.displayTitle, symbol: nil) }
         .nativeContextMenu {
             [
                 .button("Quitar de favoritos") { browser.removeFromFavorites(tab) },
@@ -349,7 +365,7 @@ private struct TabRow: View {
                 .padding(.trailing, 4)
         }
         .buttonStyle(SidebarRowStyle(isSelected: isSelected))
-        .onDrag { DragPayload.provider(for: tab) }
+        .sidebarDraggable(.tab(tab.id)) { .init(pageURL: tab.url, faviconURL: tab.faviconURL, title: tab.displayTitle, symbol: nil) }
         .nativeContextMenu { menuEntries() }
     }
 
@@ -456,11 +472,32 @@ private struct FolderSection: View {
     let pinnedIndex: Int
     @State private var isRenaming = false
     @State private var newName = ""
+    @State private var showsPreview = false
+    @State private var isOverRow = false
+    @State private var isOverPopover = false
+    @State private var previewTask: Task<Void, Never>?
+    @Environment(SidebarDrag.self) private var drag
     @Environment(\.spaceTheme) private var theme
+
+    /// Abre la vista previa tras un momento sobre la fila y la cierra al salir de fila y vista previa.
+    private func previewHover(row: Bool? = nil, popover: Bool? = nil) {
+        if let row { isOverRow = row }
+        if let popover { isOverPopover = popover }
+        previewTask?.cancel()
+        let wantsOpen = isOverRow || isOverPopover
+        guard wantsOpen != showsPreview, !folder.tabs.isEmpty, !drag.isDragging, !isRenaming else { return }
+        previewTask = Task {
+            try? await Task.sleep(for: .milliseconds(wantsOpen ? 650 : 250))
+            guard !Task.isCancelled, !drag.isDragging else { return }
+            showsPreview = wantsOpen
+        }
+    }
 
     var body: some View {
         VStack(spacing: 2) {
             Button {
+                previewTask?.cancel()
+                showsPreview = false
                 withAnimation(Theme.spring) { browser.toggle(folder) }
             } label: {
                 HStack(spacing: 8) {
@@ -485,7 +522,13 @@ private struct FolderSection: View {
                 .padding(.horizontal, 10)
             }
             .buttonStyle(SidebarRowStyle(isSelected: false))
-            .onDrag { DragPayload.provider(for: folder.id) }
+            // Como en Arc: al quedarte sobre una carpeta, se abre al lado una vista previa con buscador.
+            .onHover { hovering in previewHover(row: hovering) }
+            .popover(isPresented: $showsPreview, arrowEdge: .trailing) {
+                FolderPreview(browser: browser, folder: folder) { showsPreview = false }
+                    .onHover { hovering in previewHover(popover: hovering) }
+            }
+            .sidebarDraggable(.folder(folder.id)) { .init(pageURL: nil, faviconURL: nil, title: folder.name, symbol: "folder.fill") }
             .sidebarDropTarget { size, zone in
                 SidebarDropDelegate(
                     browser: browser, acceptsInside: true, size: size,
@@ -596,6 +639,11 @@ private struct BottomBar: View {
                 }
                 .tooltip(space.name, shortcut: index < 9 ? "⌃\(index + 1)" : nil)
                 .nativeContextMenu { SpaceMenu.entries(browser: browser, space: space) }
+                // Soltar una pestaña en el icono de un espacio la manda a ese espacio (como en Arc).
+                .sidebarDropTarget { size, zone in
+                    SidebarDropDelegate(browser: browser, acceptsInside: true, size: size, location: { _ in nil },
+                                        onTab: { tab in browser.move(tab, toSpace: space) }, zone: zone)
+                }
             }
 
             Spacer()
@@ -662,5 +710,105 @@ private struct ArchiveList: View {
             }
         }
         .frame(width: 320, height: 380)
+    }
+}
+
+/// Hueco para soltar la primera favorita (solo aparece mientras arrastras).
+private struct EmptyFavoritesDrop: View {
+    let browser: Browser
+    @Environment(\.spaceTheme) private var theme
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Color(theme.title).opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            .frame(height: 50)
+            .overlay(
+                Label("Suelta aquí para fijarla arriba", systemImage: "star")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(theme.subtitle).opacity(1.5))
+            )
+            .sidebarDropTarget { size, zone in
+                SidebarDropDelegate(browser: browser, size: size, location: { _ in .favorites(0) }, zone: zone)
+            }
+    }
+}
+
+/// Vista previa de una carpeta (como en Arc): buscador y sus pestañas, con cuándo las usaste.
+private struct FolderPreview: View {
+    let browser: Browser
+    let folder: Folder
+    let close: () -> Void
+    @State private var query = ""
+    @State private var highlighted = 0
+    @FocusState private var isSearchFocused: Bool
+
+    private var tabs: [BrowserTab] {
+        let all = folder.tabs.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        guard !query.isEmpty else { return all }
+        let needle = query.searchNormalized
+        return all.filter { $0.displayTitle.searchNormalized.contains(needle) || ($0.url?.host() ?? "").searchNormalized.contains(needle) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                TextField("Buscar en \(folder.name)…", text: $query)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .focused($isSearchFocused)
+                    .onSubmit { open(at: highlighted) }
+                    .onKeyPress(.downArrow) { highlighted = min(highlighted + 1, max(tabs.count - 1, 0)); return .handled }
+                    .onKeyPress(.upArrow) { highlighted = max(highlighted - 1, 0); return .handled }
+                    .onChange(of: query) { highlighted = 0 }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            Divider()
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                        Button { open(at: index) } label: {
+                            HStack(spacing: 11) {
+                                FaviconView(tab: tab, size: 18)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(tab.displayTitle)
+                                        .font(.system(size: 13.5, weight: .medium))
+                                        .lineLimit(1)
+                                    Text(tab.lastActiveAt == .distantPast
+                                         ? (tab.url?.host() ?? "")
+                                         : tab.lastActiveAt.formatted(.relative(presentation: .named)))
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(Color.primary.opacity(index == highlighted ? 0.08 : 0)))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { if $0 { highlighted = index } }
+                    }
+                    if tabs.isEmpty {
+                        Text("Sin resultados").font(.system(size: 13)).foregroundStyle(.secondary).padding(20)
+                    }
+                }
+                .padding(6)
+            }
+            .frame(maxHeight: 330)
+        }
+        .frame(width: 330)
+        .onAppear { isSearchFocused = true }
+    }
+
+    private func open(at index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        browser.select(tabs[index])
+        close()
     }
 }

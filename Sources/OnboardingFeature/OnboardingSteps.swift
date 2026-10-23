@@ -436,9 +436,9 @@ private struct AppTile: View {
         .onHover { hovering in withAnimation(Theme.pressSpring) { isHovering = hovering } }
         .animation(Theme.pressSpring, value: isSelected)
         .task {
-            // Iconos nítidos: el servicio de iconos de Google los da a 128 px.
-            await FaviconCache.shared.load(pageURL: app.url,
-                                           iconURL: URL(string: "https://www.google.com/s2/favicons?domain=\(app.url.host() ?? "")&sz=128"))
+            // Si ya tienes el icono (porque usas el sitio), se queda; si no, se pide el del sitio.
+            guard FaviconCache.shared.image(for: app.url.host() ?? "") == nil else { return }
+            await FaviconCache.shared.load(pageURL: app.url, iconURL: app.icon)
         }
     }
 }
