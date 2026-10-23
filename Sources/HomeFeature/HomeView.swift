@@ -3,18 +3,15 @@ import BrowserCore
 import BrowserUI
 
 /// La página Inicio: un punto de partida tranquilo y un lugar donde dejar el navegador en espera
-/// (por ejemplo, al compartir pantalla). Reloj, saludo, buscador y favoritos sobre un fondo vivo.
+/// (por ejemplo, al compartir pantalla, para que no se vean tus páginas). Reloj, saludo, buscador y favoritos sobre un fondo vivo.
 public struct HomeView: View {
     let browser: Browser
-    /// En modo pantalla compartida solo se ven el reloj y el buscador: nada personal.
-    let isPresenting: Bool
 
     @State private var appeared = false
     @Environment(\.spaceTheme) private var theme
 
-    public init(browser: Browser, isPresenting: Bool = false) {
+    public init(browser: Browser) {
         self.browser = browser
-        self.isPresenting = isPresenting
     }
 
     public var body: some View {
@@ -44,7 +41,7 @@ public struct HomeView: View {
                     .opacity(appeared ? 1 : 0)
                     .scaleEffect(appeared ? 1 : 0.96)
 
-                if !isPresenting && !browser.favorites.isEmpty {
+                if !browser.favorites.isEmpty {
                     FavoritesRow(browser: browser)
                         .padding(.top, 30)
                         .opacity(appeared ? 1 : 0)
@@ -53,20 +50,9 @@ public struct HomeView: View {
                 }
 
                 Spacer(minLength: 40)
-
-                PresentButton(browser: browser, isPresenting: isPresenting)
-                    .padding(.bottom, 22)
             }
         }
         .environment(\.colorScheme, theme.isDark ? .dark : .light)
-        .background {
-            if isPresenting {
-                // Esc sale del modo pantalla compartida.
-                Button("") { withAnimation(Theme.spring) { browser.setPresenting(false) } }
-                    .keyboardShortcut(.cancelAction)
-                    .hidden()
-            }
-        }
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) { appeared = true }
         }
@@ -194,34 +180,5 @@ private struct FavoritesRow: View {
             .onHover { hovering in withAnimation(Theme.pressSpring) { isHovering = hovering } }
             .tooltip(tab.displayTitle)
         }
-    }
-}
-
-// MARK: - Modo pantalla compartida
-
-private struct PresentButton: View {
-    let browser: Browser
-    let isPresenting: Bool
-    @State private var isHovering = false
-    @Environment(\.spaceTheme) private var theme
-
-    var body: some View {
-        Button {
-            withAnimation(Theme.spring) { browser.setPresenting(!isPresenting) }
-        } label: {
-            Label(isPresenting ? "Salir del modo pantalla compartida" : "Modo pantalla compartida",
-                  systemImage: isPresenting ? "rectangle.on.rectangle" : "rectangle.on.rectangle.slash")
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(Color(theme.title).opacity(isHovering ? 0.9 : 0.55))
-                .padding(.horizontal, 14)
-                .frame(height: 30)
-                .background(Capsule().fill(Color(theme.hover)).opacity(isHovering ? 1 : 0.4))
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in withAnimation(Theme.hoverIn) { isHovering = hovering } }
-        .tooltip(isPresenting ? "Volver a tus pestañas" : "Oculta tus pestañas para compartir pantalla",
-                 shortcut: isPresenting ? "⎋" : "⇧⌘P")
-        // En modo presentación se nota menos hasta que pasas el ratón.
-        .opacity(isPresenting && !isHovering ? 0.35 : 1)
     }
 }

@@ -43,9 +43,15 @@ struct BrowserWindow: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
+                    // Para que el scroll vaya fluido, la página no se recorta ni se le pone sombra desde
+                    // SwiftUI (obligaría a recomponerla en cada fotograma): las esquinas van en su propia
+                    // capa (ver WebContentView) y la sombra se dibuja aparte, detrás.
                     WebContentArea(browser: browser)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                        .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                                .fill(Color(white: 0.12))
+                                .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                        )
                         .overlay { PageEdgeGlow(tab: browser.selectedTab) }
                         .overlay(alignment: .top) {
                             ZoomIndicatorView(browser: browser).padding(.top, 10)
@@ -69,17 +75,10 @@ struct BrowserWindow: View {
                     .zIndex(2)
             }
 
-            if !browser.showsSidebar && !isResizingSidebar && !browser.isPresenting {
+            if !browser.showsSidebar && !isResizingSidebar {
                 peekingSidebar
             }
 
-            // Modo pantalla compartida: Inicio cubre toda la ventana; tus pestañas no se ven.
-            if browser.isPresenting {
-                HomeView(browser: browser, isPresenting: true)
-                    .ignoresSafeArea()
-                    .transition(.opacity.combined(with: .scale(scale: 1.02)))
-                    .zIndex(15)
-            }
 
             ToastView(browser: browser)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -103,7 +102,6 @@ struct BrowserWindow: View {
         .animation(Theme.spring, value: browser.showsSidebar)
         .animation(Theme.spring, value: browser.showsToolbar)
         .animation(Theme.spring, value: browser.showsLibrary)
-        .animation(.spring(response: 0.45, dampingFraction: 0.9), value: browser.isPresenting)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
         .sheet(isPresented: Binding(
@@ -168,16 +166,18 @@ private struct WebContentArea: View {
     let browser: Browser
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
         if let tab = browser.selectedTab, !tab.isHome {
             if let page = tab.page {
-                WebContentView(page: page)
+                WebContentView(page: page, cornerRadius: Theme.cornerRadius)
             } else {
                 // Pestaña hibernada: se despierta al mostrarse.
-                Color.white.task(id: tab.id) { tab.wake() }
+                Color.white.clipShape(shape).task(id: tab.id) { tab.wake() }
             }
         } else {
             // La pestaña Inicio, o ninguna pestaña abierta.
             HomeView(browser: browser)
+                .clipShape(shape)
                 .transition(.opacity)
         }
     }
@@ -186,9 +186,16 @@ private struct WebContentArea: View {
 /// Muestra la vista nativa de la página (WKWebView hoy, Chromium mañana).
 struct WebContentView: NSViewRepresentable {
     let page: WebPage
+    let cornerRadius: CGFloat
 
     func makeNSView(context: Context) -> NSView {
-        NSView()
+        // Esquinas redondeadas en la capa: Core Animation las recorta sin dibujar la página de más.
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.cornerRadius = cornerRadius
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = true
+        return container
     }
 
     func updateNSView(_ container: NSView, context: Context) {

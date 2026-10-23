@@ -64,10 +64,6 @@ struct BrowserCommands: Commands {
             .keyboardShortcut("l", modifiers: [.command, .shift])
             Button("Descargas") { browser.perform(.showDownloads) }
                 .keyboardShortcut("l", modifiers: [.command, .option])
-            Button(browser.isPresenting ? "Salir del modo pantalla compartida" : "Modo pantalla compartida") {
-                withAnimation { browser.setPresenting(!browser.isPresenting) }
-            }
-            .keyboardShortcut("p", modifiers: [.command, .shift])
             Button(browser.showsToolbar ? "Ocultar barra de herramientas" : "Mostrar barra de herramientas") {
                 browser.showsToolbar.toggle()
             }

@@ -46,14 +46,9 @@ final class HomeTests: XCTestCase {
         XCTAssertTrue(browser.archive.isEmpty)
     }
 
-    func testPresentationModeAndPageCommands() {
+    func testPageCommandsDoNotApplyToHome() {
         let (browser, _) = makeBrowser()
         browser.openHome()
-
-        browser.perform(.togglePresenting)
-        XCTAssertTrue(browser.isPresenting)
-        browser.perform(.togglePresenting)
-        XCTAssertFalse(browser.isPresenting)
 
         // En Inicio no tiene sentido copiar la URL ni recargar.
         let suggestions = browser.suggestions(for: "copiar", mode: .currentTab, searchSuggestions: [])

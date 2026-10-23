@@ -67,24 +67,35 @@ public struct GrainOverlay: View {
     }
 
     public var body: some View {
+        // Fusión normal (no "overlay"): así el grano no obliga a recomponer la ventana en cada
+        // fotograma mientras se hace scroll en la página.
         Image(nsImage: Self.texture)
             .resizable(resizingMode: .tile)
-            .blendMode(.overlay)
-            .opacity(min(intensity, 1) * 0.55)
+            .opacity(min(intensity, 1))
             .allowsHitTesting(false)
     }
 
+    /// Puntos claros y oscuros semitransparentes: aclaran y oscurecen, como el "overlay", sin serlo.
     private static let texture: NSImage = {
         let size = 160
-        var pixels = [UInt8](repeating: 0, count: size * size)
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
         var generator = SystemRandomNumberGenerator()
-        for index in pixels.indices {
-            pixels[index] = UInt8.random(in: 0...255, using: &generator)
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            let value = Int.random(in: 0...255, using: &generator)
+            let light = value > 127
+            // Alfa premultiplicado: el color no puede superar al alfa.
+            let alpha = UInt8(Double(abs(value - 127)) / 127 * 46)
+            let color: UInt8 = light ? alpha : 0
+            pixels[index] = color
+            pixels[index + 1] = color
+            pixels[index + 2] = color
+            pixels[index + 3] = alpha
         }
         let provider = CGDataProvider(data: Data(pixels) as CFData)!
         let image = CGImage(
-            width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: size,
-            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0),
+            width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: size * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
         )!
         // Mitad de tamaño: grano fino en pantallas Retina.

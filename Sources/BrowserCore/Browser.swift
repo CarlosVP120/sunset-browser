@@ -18,8 +18,6 @@ public final class Browser {
     public var librarySection: LibrarySection = .downloads
     /// Pestaña que se está renombrando en la barra lateral.
     public var renamingTabID: BrowserTab.ID?
-    /// Modo pantalla compartida: Inicio a pantalla completa, sin barra lateral ni pestañas a la vista.
-    public var isPresenting = false
     /// Ventana con la lista de atajos de teclado.
     public var showsShortcuts = false
     /// Aviso breve abajo ("Enlace copiado").

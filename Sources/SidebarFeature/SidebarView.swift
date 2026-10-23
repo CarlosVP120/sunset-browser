@@ -382,22 +382,26 @@ private struct TabRowLabel: View {
                         if !isNameFocused, browser.renamingTabID == tab.id { browser.rename(tab, to: newName) }
                     }
             } else {
-                Text(tab.displayTitle)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                // El título usa todo el ancho y se desvanece al final; al pasar el ratón,
+                // el desvanecido se alarga para dejar sitio al botón de cerrar.
+                FadingText(tab.displayTitle, fade: isHovering ? 40 : 14)
                     .foregroundStyle(Color(theme.title).opacity(tab.isHibernated && !isSelected ? 0.72 : 1))
+                    .animation(Theme.hoverOut, value: isHovering)
             }
-            Spacer(minLength: 0)
-            Button { withAnimation(Theme.spring) { browser.close(tab) } } label: {
-                Image(systemName: isPinned ? "minus" : "xmark")
-                    .font(.system(size: 9.5, weight: .bold))
-            }
-            .buttonStyle(ChromeButtonStyle(size: 22))
-            .tooltip(isPinned ? "Descargar de memoria" : "Cerrar pestaña", shortcut: "⌘W")
-            .opacity(isHovering ? 1 : 0)
-            .scaleEffect(isHovering ? 1 : 0.7)
-            .animation(Theme.hoverIn, value: isHovering)
         }
+        .overlay(alignment: .trailing) {
+            // El botón no ocupa sitio: solo aparece encima del final del título.
+            if isHovering && browser.renamingTabID != tab.id {
+                Button { withAnimation(Theme.spring) { browser.close(tab) } } label: {
+                    Image(systemName: isPinned ? "minus" : "xmark")
+                        .font(.system(size: 9.5, weight: .bold))
+                }
+                .buttonStyle(ChromeButtonStyle(size: 22))
+                .tooltip(isPinned ? "Descargar de memoria" : "Cerrar pestaña", shortcut: "⌘W")
+                .transition(.scale(scale: 0.7).combined(with: .opacity))
+            }
+        }
+        .animation(Theme.hoverIn, value: isHovering)
         .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
         .animation(Theme.spring, value: tab.isLoading)
     }
@@ -430,9 +434,8 @@ private struct FolderSection: View {
                             }
                             .onExitCommand { isRenaming = false }
                     } else {
-                        Text(folder.name).lineLimit(1)
+                        FadingText(folder.name)
                     }
-                    Spacer(minLength: 0)
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color(theme.title))

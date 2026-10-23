@@ -14,13 +14,6 @@ extension Browser {
         }
     }
 
-    /// Modo pantalla compartida: muestra solo Inicio, sin nada privado a la vista.
-    public func setPresenting(_ presenting: Bool) {
-        isPresenting = presenting
-        commandBar = nil
-        isFindBarVisible = false
-    }
-
     // MARK: - Buscar en la página (⌘F, ⌘G, ⇧⌘G)
 
     public func showFindBar() {
