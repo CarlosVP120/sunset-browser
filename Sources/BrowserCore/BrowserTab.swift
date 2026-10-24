@@ -37,7 +37,7 @@ public final class BrowserTab: Identifiable {
     /// Si la consola de esta pestaña está a la vista (sus errores no cuentan como "sin ver").
     @ObservationIgnored var isConsoleVisible: (() -> Bool)?
 
-    @ObservationIgnored private let makePage: @MainActor () -> WebPage
+    @ObservationIgnored private let makePage: @MainActor (URL?) -> WebPage
     @ObservationIgnored private var savedInteractionState: Any?
     /// Avisa al navegador de que hay algo nuevo que guardar.
     @ObservationIgnored var onStateChange: (() -> Void)?
@@ -55,7 +55,7 @@ public final class BrowserTab: Identifiable {
         url: URL?,
         title: String = "",
         faviconURL: URL? = nil,
-        makePage: @escaping @MainActor () -> WebPage
+        makePage: @escaping @MainActor (URL?) -> WebPage
     ) {
         self.id = id
         self.url = url
@@ -129,7 +129,7 @@ public final class BrowserTab: Identifiable {
         lastActiveAt = Date()
         if let page { return page }
 
-        let page = makePage()
+        let page = makePage(url)
         page.onChange = { [weak self] snapshot in self?.apply(snapshot) }
         page.onRequestActivate = { [weak self] in self?.onRequestActivate?() }
         page.onRequestClose = { [weak self] in self?.onRequestClose?() }

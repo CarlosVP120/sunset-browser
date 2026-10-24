@@ -4,6 +4,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+### Fixed
+
+- Extension pages opened in a tab (for example SVG Gobbler's collection or an options page) load instead of staying blank, and keep working after restarting Sunset.
+
 ## [0.1.3] - 2026-10-24
 
 ### Changed

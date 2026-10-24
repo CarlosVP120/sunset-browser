@@ -69,8 +69,15 @@ public final class WebKitEngine: WebEngine {
     private var profileConfigurations: [UUID: WKWebViewConfiguration] = [:]
 
     public func makePage(profile: UUID?) -> WebPage {
-        let page = WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads,
-                              passwords: passwords)
+        makePage(profile: profile, for: nil)
+    }
+
+    public func makePage(profile: UUID?, for url: URL?) -> WebPage {
+        // WebKit solo sirve las páginas de una extensión en una vista creada con su configuración.
+        var extensionConfiguration: WKWebViewConfiguration?
+        if #available(macOS 15.4, *), let url { extensionConfiguration = extensions.webViewConfiguration(for: url) }
+        let page = WebKitPage(configuration: extensionConfiguration ?? configuration(for: profile), extensionsHost: extensionsHost,
+                              downloads: downloads, passwords: passwords)
         mediaRouter.register(page)
         pages.add(page)
         return page

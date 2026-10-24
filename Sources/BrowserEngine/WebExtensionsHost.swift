@@ -61,6 +61,13 @@ public final class WebExtensionsHost: NSObject {
         contexts[id]?.action(for: activePage)
     }
 
+    /// La configuración para abrir una página de una extensión (`webkit-extension://<id>/…`):
+    /// con la normal, WebKit responde "resource unavailable" y la pestaña queda en blanco.
+    public func webViewConfiguration(for url: URL) -> WKWebViewConfiguration? {
+        guard url.scheme == "webkit-extension" else { return nil }
+        return contexts.values.first { $0.baseURL.host() == url.host() }?.webViewConfiguration
+    }
+
     /// Pulsar el botón de la extensión (abre su popup o ejecuta su acción).
     public func performAction(for id: UUID, anchor: CGRect) {
         popupAnchor[id] = anchor
@@ -253,6 +260,11 @@ public final class WebExtensionsHost: NSObject {
             let webExtension = try await WKWebExtension(resourceBaseURL: folder(for: record.id))
             let context = WKWebExtensionContext(for: webExtension)
             context.uniqueIdentifier = record.id.uuidString
+            // Dirección fija (si no, WebKit inventa una en cada arranque y las pestañas que la
+            // extensión abrió dejan de cargar tras reiniciar Sunset).
+            if let baseURL = URL(string: "webkit-extension://\(record.id.uuidString.lowercased())/") {
+                context.baseURL = baseURL
+            }
             context.isInspectable = true
             for permission in webExtension.requestedPermissions {
                 context.setPermissionStatus(.grantedExplicitly, for: permission)

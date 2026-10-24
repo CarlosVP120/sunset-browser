@@ -575,9 +575,10 @@ public final class Browser {
     }
 
     private func makeTab(url: URL?, id: UUID = UUID(), title: String = "", faviconURL: URL? = nil) -> BrowserTab {
-        let tab = BrowserTab(id: id, url: url, title: title, faviconURL: faviconURL) { [weak self, engine] in
-            // La página se crea con el perfil del espacio en el que está la pestaña.
-            engine.makePage(profile: self?.profileID(forTabID: id))
+        let tab = BrowserTab(id: id, url: url, title: title, faviconURL: faviconURL) { [weak self, engine] url in
+            // La página se crea con el perfil del espacio en el que está la pestaña (y, si es de
+            // una extensión, con la configuración de esa extensión).
+            engine.makePage(profile: self?.profileID(forTabID: id), for: url)
         }
         tab.onStateChange = { [weak self, weak tab] in
             guard let self else { return }

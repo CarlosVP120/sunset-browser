@@ -116,12 +116,19 @@ public enum MediaCommand: Sendable {
 public protocol WebEngine: AnyObject {
     /// Crea una página. `profile` separa cookies, sesiones y almacenamiento (perfiles de Arc).
     func makePage(profile: UUID?) -> WebPage
+    /// Igual, sabiendo qué se va a abrir: las páginas de una extensión (`webkit-extension://`)
+    /// necesitan una configuración propia de esa extensión.
+    func makePage(profile: UUID?, for url: URL?) -> WebPage
     /// Borra los datos web (cookies, caché, almacenamiento) de un perfil eliminado.
     func removeProfileData(_ profile: UUID)
     /// Borra datos de navegación de todos los perfiles; con `host`, solo los de ese sitio.
     func clearBrowsingData(_ kinds: BrowsingData, host: String?) async
     /// Añade cookies (sesiones traídas de otro navegador) al almacén de un perfil.
     func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async
+}
+
+public extension WebEngine {
+    func makePage(profile: UUID?, for url: URL?) -> WebPage { makePage(profile: profile) }
 }
 
 /// Qué datos de navegación borrar.
