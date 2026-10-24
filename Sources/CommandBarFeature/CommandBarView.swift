@@ -7,6 +7,8 @@ import BrowserUI
 public struct CommandBarView: View {
     let browser: Browser
     let mode: CommandBarMode
+    /// La zona de la página (en las coordenadas de la vista): el panel se centra ahí, no en la ventana.
+    let area: CGRect?
 
     @State private var query = ""
     @State private var selection = 0
@@ -15,23 +17,27 @@ public struct CommandBarView: View {
     @Namespace private var selectionNamespace
     @Environment(\.spaceTheme) private var theme
 
-    public init(browser: Browser, mode: CommandBarMode) {
+    public init(browser: Browser, mode: CommandBarMode, area: CGRect? = nil) {
         self.browser = browser
         self.mode = mode
+        self.area = area
     }
 
     public var body: some View {
         let suggestions = browser.suggestions(for: query, mode: mode, searchSuggestions: searchSuggestions)
 
         GeometryReader { geometry in
-            ZStack(alignment: .top) {
+            let zone = area.flatMap { $0.isEmpty ? nil : $0 } ?? CGRect(origin: .zero, size: geometry.size)
+            ZStack {
                 // Un clic fuera del panel lo cierra.
                 Color.black.opacity(0.001)
                     .onTapGesture { close() }
 
+                // Centrado (en horizontal y vertical) en la zona de la página.
                 panel(suggestions)
-                    .frame(width: min(720, geometry.size.width - 80))
-                    .padding(.top, max(48, geometry.size.height * 0.13))
+                    .frame(width: min(720, zone.width - 80))
+                    .position(x: zone.midX, y: zone.midY)
+                    .animation(Theme.spring, value: suggestions.count)
             }
         }
         .environment(\.colorScheme, .dark)

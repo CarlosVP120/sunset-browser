@@ -91,7 +91,7 @@ public struct FaviconView: View {
         let cache = FaviconCache.shared
         Group {
             if HomePage.isHome(pageURL) {
-                Image(systemName: "house.fill").resizable().scaledToFit().foregroundStyle(Theme.secondaryText)
+                Image(systemName: "house.fill").resizable().scaledToFit().foregroundStyle(.secondary)
             } else if let key = FaviconCache.key(for: pageURL), let image = cache.image(for: key) {
                 Image(nsImage: image).resizable().interpolation(.high)
                     .transition(.opacity)

@@ -102,7 +102,7 @@ struct BrowserWindow: View {
             }
 
             if let mode = browser.commandBar {
-                CommandBarView(browser: browser, mode: mode)
+                CommandBarView(browser: browser, mode: mode, area: contentFrame)
                     .id(mode)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
