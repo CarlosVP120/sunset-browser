@@ -4,9 +4,11 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-24
+
 ### Added
 
-- Sign-in dialog for sites protected with HTTP authentication (Basic, Digest or NTLM), such as self-hosted Supabase Studio behind Kong. The password is saved in Sunset's vault once the server accepts it and is used automatically next time.
+- Sign-in dialog for sites protected with HTTP authentication (Basic, Digest or NTLM), such as self-hosted Supabase Studio behind Kong or Envoy. It asks once per site, even when the page makes many requests at the same time, and the password is saved in Sunset's vault once the server accepts it and used automatically next time.
 
 ### Fixed
 
@@ -31,5 +33,6 @@ First public version.
 - First-launch onboarding that imports spaces, bookmarks, history, passwords and sessions from Arc, Chrome, Safari, Brave and Edge.
 - Universal (Apple silicon and Intel) DMG installer.
 
-[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CarlosVP120/sunset-browser/releases/tag/v0.1.0
