@@ -66,7 +66,8 @@ public final class WebKitEngine: WebEngine {
     private var profileConfigurations: [UUID: WKWebViewConfiguration] = [:]
 
     public func makePage(profile: UUID?) -> WebPage {
-        let page = WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads)
+        let page = WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads,
+                              passwords: passwords)
         mediaRouter.register(page)
         return page
     }
@@ -160,11 +161,17 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     private static let faviconScript = "window.__sunsetFavicon ? window.__sunsetFavicon() : null"
 
     private weak var downloads: DownloadManager?
+    /// Para los sitios que piden contraseña por HTTP (ver `HTTPAuthentication.swift`).
+    private(set) weak var passwords: PasswordVault?
+    /// La contraseña recién escrita, hasta saber si el servidor la acepta.
+    var pendingAuthentication: Credential?
 
-    init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?, downloads: DownloadManager?) {
+    init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?, downloads: DownloadManager?,
+         passwords: PasswordVault?) {
         webView = WKWebView(frame: .zero, configuration: configuration)
         self.extensionsHost = extensionsHost
         self.downloads = downloads
+        self.passwords = passwords
         super.init()
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
@@ -292,6 +299,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         _ webView: WKWebView,
         decidePolicyFor navigationResponse: WKNavigationResponse
     ) async -> WKNavigationResponsePolicy {
+        savePendingAuthentication(after: navigationResponse.response)
         // Lo que no se puede mostrar (zip, dmg…) o lo que el servidor marca como adjunto, se descarga.
         let disposition = (navigationResponse.response as? HTTPURLResponse)?
             .value(forHTTPHeaderField: "Content-Disposition")?.lowercased() ?? ""
