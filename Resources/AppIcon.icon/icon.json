@@ -12,7 +12,7 @@
           "image-name": "ray-large.svg",
           "name": "ray-large",
           "position": {
-            "scale": 3.8,
+            "scale": 4.5,
             "translation-in-points": [
               0,
               0
@@ -29,7 +29,7 @@
           "image-name": "horizon.svg",
           "name": "horizon",
           "position": {
-            "scale": 3.8,
+            "scale": 4.5,
             "translation-in-points": [
               0,
               0
@@ -46,7 +46,7 @@
           "image-name": "ray-tall.svg",
           "name": "ray-tall",
           "position": {
-            "scale": 3.8,
+            "scale": 4.5,
             "translation-in-points": [
               0,
               0
@@ -63,7 +63,7 @@
           "image-name": "ray-small.svg",
           "name": "ray-small",
           "position": {
-            "scale": 3.8,
+            "scale": 4.5,
             "translation-in-points": [
               0,
               0

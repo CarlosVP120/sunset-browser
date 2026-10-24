@@ -6,6 +6,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Changed
 
+- Bigger symbol in the app icon.
 - The app is now called just "Sunset" in the Dock, the menu bar and Finder (`Sunset.app`). The project keeps the name Sunset Browser, and installs keep their data.
 - Gapless layout: the web page now reaches the window edges, with rounded corners only next to the sidebar (and none when the sidebar is hidden).
 
