@@ -168,7 +168,8 @@ private struct PanelBackground: View {
 
     var body: some View {
         ZStack {
-            VisualEffectBlur(material: .hudWindow, isDark: true)
+            // Desenfoca lo que hay debajo en la ventana (Inicio o la página), no el escritorio.
+            VisualEffectBlur(material: .hudWindow, isDark: true, blendingMode: .withinWindow)
             Color.black.opacity(0.42)
             Color(theme.background.first ?? .navy).opacity(0.22)
             GrainOverlay(intensity: theme.grain * 0.5)

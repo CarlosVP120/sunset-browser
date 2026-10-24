@@ -1,19 +1,23 @@
 import SwiftUI
 import BrowserCore
 
-/// Desenfoque nativo de macOS que deja ver lo que hay detrás de la ventana.
+/// Desenfoque nativo de macOS. Por defecto deja ver lo que hay detrás de la ventana (el escritorio);
+/// con `.withinWindow`, lo que hay debajo dentro de la propia ventana (para paneles sobre la página).
 public struct VisualEffectBlur: NSViewRepresentable {
     var material: NSVisualEffectView.Material
     var isDark: Bool
+    var blendingMode: NSVisualEffectView.BlendingMode
 
-    public init(material: NSVisualEffectView.Material = .hudWindow, isDark: Bool = true) {
+    public init(material: NSVisualEffectView.Material = .hudWindow, isDark: Bool = true,
+                blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) {
         self.material = material
         self.isDark = isDark
+        self.blendingMode = blendingMode
     }
 
     public func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
+        view.blendingMode = blendingMode
         view.state = .active
         updateNSView(view, context: context)
         return view

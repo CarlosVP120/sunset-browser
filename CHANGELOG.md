@@ -15,6 +15,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 ### Fixed
 
 - The Command Bar opens centered on the web area (horizontally and vertically) instead of the whole window, and the Home row shows its icon when selected.
+- The Command Bar's glass blurs what is under it in the window (Home or the page) instead of whatever is behind the window on the desktop.
 - Site icons for pages behind a password or a session (for example self-hosted Supabase Studio) are fetched through the open page, so they no longer show a globe.
 - The site icon stays centered inside the loading ring while a tab loads.
 - Gmail's theme background now covers the whole page after hiding the sidebar, instead of leaving a dark band on the right.
