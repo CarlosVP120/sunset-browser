@@ -4,7 +4,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-10-24
+## [0.1.3] - 2026-10-24
 
 ### Changed
 
@@ -49,7 +49,7 @@ First public version.
 - First-launch onboarding that imports spaces, bookmarks, history, passwords and sessions from Arc, Chrome, Safari, Brave and Edge.
 - Universal (Apple silicon and Intel) DMG installer.
 
-[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.1...v0.1.2
+[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.1...v0.1.3
 [0.1.1]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CarlosVP120/sunset-browser/releases/tag/v0.1.0
