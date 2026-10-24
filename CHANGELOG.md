@@ -7,6 +7,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 ### Fixed
 
 - Site icons for pages behind a password or a session (for example self-hosted Supabase Studio) are fetched through the open page, so they no longer show a globe.
+- The site icon stays centered inside the loading ring while a tab loads.
 
 ## [0.1.1] - 2026-10-24
 

@@ -332,7 +332,12 @@ final class TabCellView: NSView, NSTextFieldDelegate {
         ring.opacity = tab.isLoading ? 1 : 0
         ringTrack.opacity = tab.isLoading ? 1 : 0
         ring.strokeEnd = max(0.08, tab.progress)
-        favicon.layer?.setAffineTransform(tab.isLoading ? CGAffineTransform(scaleX: 0.78, y: 0.78) : .identity)
+        // Las capas de AppKit escalan desde la esquina (anchorPoint 0,0): se escala alrededor del
+        // centro para que el icono quede centrado dentro del anillo.
+        let center: CGFloat = 8
+        favicon.layer?.setAffineTransform(tab.isLoading
+            ? CGAffineTransform(translationX: center, y: center).scaledBy(x: 0.78, y: 0.78).translatedBy(x: -center, y: -center)
+            : .identity)
         CATransaction.commit()
         wasLoading = tab.isLoading
 
