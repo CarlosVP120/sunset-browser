@@ -18,10 +18,12 @@ extension WebKitPage {
         guard methods.contains(space.authenticationMethod), let site = Self.url(of: space) else {
             return (.performDefaultHandling, nil)
         }
-        let key = "\(space.host):\(space.port):\(space.realm ?? "")"
+        // Por origen, no por realm: Envoy (Supabase) pone la dirección de cada petición en el realm,
+        // y como Chromium, una vez dentro del sitio la contraseña sirve para todas sus rutas.
+        let key = "\(space.protocol ?? "https")://\(space.host):\(space.port)"
         let tried = challenge.proposedCredential
         let status = (challenge.failureResponse as? HTTPURLResponse)?.statusCode ?? 0
-        Self.authLog.info("""
+        Self.authLog.notice("""
             desafío \(space.authenticationMethod, privacy: .public) en \(key, privacy: .public): \
             fallos \(challenge.previousFailureCount), respuesta \(status), \
             \(challenge.failureResponse?.url?.path() ?? "-", privacy: .public), \
@@ -109,7 +111,8 @@ enum HTTPAuthenticationPrompt {
         alert.messageText = "Inicia sesión en \(space.host)"
         var details: [String] = []
         if failed { details.append("El usuario o la contraseña no son correctos.") }
-        if let realm = space.realm, !realm.isEmpty { details.append("El sitio dice: «\(realm)».") }
+        // Algunos servidores (Envoy) ponen ahí la dirección pedida: solo se muestra si es un nombre.
+        if let realm = space.realm, !realm.isEmpty, !realm.contains("://") { details.append("El sitio dice: «\(realm)».") }
         details.append(space.receivesCredentialSecurely
             ? "Tu usuario y contraseña viajan cifrados."
             : "Esta conexión no es segura: la contraseña se enviará sin cifrar.")

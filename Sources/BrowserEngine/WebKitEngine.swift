@@ -165,7 +165,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     private(set) weak var passwords: PasswordVault?
     /// La contraseña recién escrita, hasta saber si el servidor la acepta.
     var pendingAuthentication: Credential?
-    /// Autenticación HTTP por sitio (servidor, puerto y realm): la respuesta en uso, la hoja
+    /// Autenticación HTTP por origen (esquema, servidor y puerto): la respuesta en uso, la hoja
     /// abierta (las peticiones a la vez esperan la misma), cuándo se canceló y los fallos seguidos.
     var authAnswers: [String: URLCredential] = [:]
     var authPrompts: [String: Task<HTTPAuthenticationPrompt.Answer?, Never>] = [:]
