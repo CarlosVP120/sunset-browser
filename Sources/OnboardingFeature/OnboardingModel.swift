@@ -237,7 +237,7 @@ public final class Onboarding {
     // MARK: Navegador predeterminado
 
     private func setAsDefaultBrowser() {
-        // macOS muestra su propia confirmación ("¿Usar Sunset Browser como navegador?").
+        // macOS muestra su propia confirmación ("¿Usar Sunset como navegador?").
         let app = Bundle.main.bundleURL
         Task {
             try? await NSWorkspace.shared.setDefaultApplication(at: app, toOpenURLsWithScheme: "http")

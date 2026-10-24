@@ -70,7 +70,7 @@ Arc changed how many of us use the web, and then it stopped getting new features
 ## Install
 
 1. Download `Sunset-Browser.dmg` from the [latest release](https://github.com/CarlosVP120/sunset-browser/releases/latest).
-2. Open it and drag **Sunset Browser** to **Applications**.
+2. Open it and drag **Sunset** to **Applications**.
 3. The first time, macOS may say it can't verify the developer (builds are not notarized yet). Open **System Settings › Privacy & Security** and click **Open Anyway**.
 
 Requires macOS 14 Sonoma or later, on Apple silicon or Intel.
@@ -83,7 +83,7 @@ You need Xcode 26 or later (the app icon is an Icon Composer `.icon` file compil
 git clone https://github.com/CarlosVP120/sunset-browser.git
 cd sunset-browser
 ./scripts/bundle.sh
-open "build/Sunset Browser.app"
+open build/Sunset.app
 ```
 
 Other useful commands:

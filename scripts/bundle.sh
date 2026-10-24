@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Compila Sunset Browser y lo empaqueta como "build/Sunset Browser.app"
+# Compila Sunset y lo empaqueta como "build/Sunset.app" (en el Dock y los menús se llama solo "Sunset")
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -11,10 +11,10 @@ ARCH_FLAGS=()
 swift build -c "$CONFIG" "${ARCH_FLAGS[@]}"
 BIN="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)/MiNavegador"
 
-APP="build/Sunset Browser.app"
-rm -rf "$APP" build/MiNavegador.app
+APP="build/Sunset.app"
+rm -rf "$APP" build/MiNavegador.app "build/Sunset Browser.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Sunset Browser"
+cp "$BIN" "$APP/Contents/MacOS/Sunset"
 
 # Icono hecho con Icon Composer (Resources/AppIcon.icon): actool genera el Assets.car con el
 # icono de Liquid Glass (claro/oscuro/tintado) y un .icns para versiones anteriores de macOS.
@@ -28,10 +28,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Sunset Browser</string>
-    <key>CFBundleDisplayName</key><string>Sunset Browser</string>
+    <key>CFBundleName</key><string>Sunset</string>
+    <key>CFBundleDisplayName</key><string>Sunset</string>
     <key>CFBundleIdentifier</key><string>com.carlosvp.minavegador</string>
-    <key>CFBundleExecutable</key><string>Sunset Browser</string>
+    <key>CFBundleExecutable</key><string>Sunset</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIconName</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>

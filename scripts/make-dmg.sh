@@ -4,7 +4,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-NAME="Sunset Browser"
+NAME="Sunset"
 DMG="build/Sunset-Browser.dmg"
 WORK="$(mktemp -d)"
 STAGING="$WORK/staging"

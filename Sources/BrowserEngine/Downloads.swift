@@ -158,7 +158,7 @@ public final class DownloadManager: NSObject {
     private func markAsDownloaded(_ url: URL, from source: URL?) {
         var values = URLResourceValues()
         var quarantine: [String: Any] = [
-            kLSQuarantineAgentNameKey as String: "Sunset Browser",
+            kLSQuarantineAgentNameKey as String: "Sunset",
             kLSQuarantineTypeKey as String: kLSQuarantineTypeWebDownload as String,
         ]
         if let source { quarantine[kLSQuarantineDataURLKey as String] = source }

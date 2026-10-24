@@ -124,7 +124,7 @@ struct ExtensionsPanel: View {
                 Button {
                     Task { await host.installFromChromeWebStore(id: storeID) }
                 } label: {
-                    Label("Añadir esta extensión a Sunset Browser", systemImage: "plus.circle.fill")
+                    Label("Añadir esta extensión a Sunset", systemImage: "plus.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

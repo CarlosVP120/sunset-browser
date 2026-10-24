@@ -23,8 +23,8 @@ git clone https://github.com/CarlosVP120/sunset-browser.git
 cd sunset-browser
 swift build                     # compile
 swift test                      # run the tests
-./scripts/bundle.sh             # build the app bundle: build/Sunset Browser.app
-open "build/Sunset Browser.app"
+./scripts/bundle.sh             # build the app bundle: build/Sunset.app
+open build/Sunset.app
 ```
 
 `scripts/bundle.sh` wraps the SwiftPM product into a real `.app` (icon, `Info.plist`, ad-hoc signature). Use `./scripts/bundle.sh release` for an optimized build and `./scripts/make-dmg.sh` for the universal installer.
