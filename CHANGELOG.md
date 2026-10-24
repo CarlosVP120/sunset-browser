@@ -13,6 +13,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 - Site icons for pages behind a password or a session (for example self-hosted Supabase Studio) are fetched through the open page, so they no longer show a globe.
 - The site icon stays centered inside the loading ring while a tab loads.
+- Gmail's theme background now covers the whole page after hiding the sidebar, instead of leaving a dark band on the right.
 
 ## [0.1.1] - 2026-10-24
 

@@ -37,6 +37,9 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         configuration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        )
         autofill.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
@@ -105,6 +108,9 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
+            profileConfiguration.userContentController.addUserScript(
+                WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
             autofill.install(in: profileConfiguration.userContentController)
         }
         profileConfigurations[profile] = profileConfiguration
