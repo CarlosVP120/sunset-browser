@@ -207,9 +207,19 @@ private struct ExtensionRow: View {
             .frame(width: 28, height: 28)
             .opacity(installed.isEnabled ? 1 : 0.4)
 
+            let unsupported = host.unsupportedFeatures(for: installed.id)
             VStack(alignment: .leading, spacing: 1) {
                 Text(installed.name).lineLimit(1)
-                Text(installed.version).font(.caption).foregroundStyle(.secondary)
+                if unsupported.isEmpty {
+                    Text(installed.version).font(.caption).foregroundStyle(.secondary)
+                } else {
+                    // Por qué no funciona: usa funciones de Chrome que WebKit no tiene.
+                    Label("No compatible del todo con Sunset", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .help("Usa funciones de Chrome que Sunset (WebKit) no tiene:\n"
+                              + unsupported.map { "• \($0)" }.joined(separator: "\n"))
+                }
             }
 
             Spacer(minLength: 4)

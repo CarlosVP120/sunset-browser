@@ -61,6 +61,11 @@ public final class WebExtensionsHost: NSObject {
         contexts[id]?.action(for: activePage)
     }
 
+    /// Funciones de Chrome que pide la extensión y Sunset no tiene (vacío si es compatible).
+    public func unsupportedFeatures(for id: UUID) -> [String] {
+        ExtensionCompatibility.unsupportedFeatures(inExtensionAt: folder(for: id))
+    }
+
     /// La configuración para abrir una página de una extensión (`webkit-extension://<id>/…`):
     /// con la normal, WebKit responde "resource unavailable" y la pestaña queda en blanco.
     public func webViewConfiguration(for url: URL) -> WKWebViewConfiguration? {
@@ -159,8 +164,10 @@ public final class WebExtensionsHost: NSObject {
             try unpack(fileURL, into: destination)
             let webExtension = try await WKWebExtension(resourceBaseURL: destination)
 
-            // Como en Chrome: antes de instalar, se muestra lo que la extensión podrá hacer.
-            guard confirmInstall(webExtension) else { throw InstallError.cancelled }
+            // Como en Chrome: antes de instalar, se muestra lo que la extensión podrá hacer (y lo
+            // que no va a poder hacer en Sunset).
+            let unsupported = ExtensionCompatibility.unsupportedFeatures(inExtensionAt: destination)
+            guard confirmInstall(webExtension, unsupported: unsupported) else { throw InstallError.cancelled }
 
             let record = InstalledExtension(
                 id: id,
@@ -224,7 +231,7 @@ public final class WebExtensionsHost: NSObject {
         return data.subdata(in: start..<data.count)
     }
 
-    private func confirmInstall(_ webExtension: WKWebExtension) -> Bool {
+    private func confirmInstall(_ webExtension: WKWebExtension, unsupported: [String]) -> Bool {
         let alert = NSAlert()
         alert.messageText = "¿Añadir «\(webExtension.displayName ?? "extensión")»?"
         var lines: [String] = []
@@ -239,6 +246,11 @@ public final class WebExtensionsHost: NSObject {
             lines.append("• Permisos: \(permissions.joined(separator: ", "))")
         }
         alert.informativeText = lines.isEmpty ? "No pide permisos especiales." : "Podrá:\n" + lines.joined(separator: "\n")
+        if !unsupported.isEmpty {
+            alert.alertStyle = .warning
+            alert.informativeText += "\n\n⚠️ Usa funciones de Chrome que Sunset (WebKit) no tiene, así que puede no funcionar o "
+                + "funcionar a medias:\n" + unsupported.map { "• \($0)" }.joined(separator: "\n")
+        }
         if let icon = webExtension.icon(for: CGSize(width: 64, height: 64)) { alert.icon = icon }
         alert.addButton(withTitle: "Añadir extensión")
         alert.addButton(withTitle: "Cancelar")
@@ -251,7 +263,12 @@ public final class WebExtensionsHost: NSObject {
         for record in installed where record.isEnabled {
             await load(record)
         }
+        onExtensionsLoaded?()
     }
+
+    /// Al terminar de cargar las extensiones del arranque (las pestañas de extensiones que se
+    /// restauraron antes no tenían aún su configuración y hay que volver a crearlas).
+    @ObservationIgnored public var onExtensionsLoaded: (@MainActor () -> Void)?
 
     /// Carga la extensión. Los permisos que pidió se concedieron al instalarla.
     private func load(_ record: InstalledExtension, granting: Bool = true) async {

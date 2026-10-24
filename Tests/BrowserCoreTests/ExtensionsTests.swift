@@ -30,4 +30,24 @@ final class ExtensionsTests: XCTestCase {
         )
         XCTAssertNil(WebExtensionsHost.chromeWebStoreID(from: URL(string: "https://github.com/\(id)")))
     }
+
+    /// Claude para Chrome pide APIs que WebKit no tiene; SVG Gobbler, ninguna.
+    func testFlagsChromeOnlyAPIs() {
+        let claude: [String: Any] = [
+            "permissions": ["sidePanel", "storage", "activeTab", "scripting", "debugger", "tabGroups", "tabs", "alarms",
+                            "notifications", "webNavigation", "declarativeNetRequestWithHostAccess", "offscreen",
+                            "nativeMessaging", "unlimitedStorage", "downloads", "identity"],
+        ]
+        let flagged = ExtensionCompatibility.unsupportedFeatures(manifest: claude)
+        XCTAssertEqual(flagged.count, 6)
+        XCTAssertTrue(flagged.contains { $0.contains("chrome.debugger") })
+        XCTAssertTrue(flagged.contains { $0.contains("chrome.sidePanel") })
+
+        let svgGobbler: [String: Any] = ["permissions": ["activeTab", "scripting", "storage", "contextMenus"]]
+        XCTAssertEqual(ExtensionCompatibility.unsupportedFeatures(manifest: svgGobbler), [])
+
+        // El panel lateral declarado solo con su clave del manifiesto también cuenta.
+        let panelOnly: [String: Any] = ["side_panel": ["default_path": "panel.html"]]
+        XCTAssertEqual(ExtensionCompatibility.unsupportedFeatures(manifest: panelOnly).count, 1)
+    }
 }

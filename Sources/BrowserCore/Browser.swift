@@ -518,6 +518,16 @@ public final class Browser {
 
     // MARK: - Hibernación
 
+    /// Vuelve a crear las pestañas con páginas de extensiones (`webkit-extension://`) que se abrieron
+    /// antes de que las extensiones cargaran: así usan la configuración de su extensión y no quedan en blanco.
+    public func reloadExtensionPages() {
+        for tab in allTabs where tab.url?.scheme == "webkit-extension" && tab.page != nil {
+            tab.discardPage()
+            if tab.id == selectedTab?.id { tab.wake() }
+        }
+        syncActivePage()
+    }
+
     /// Hiberna las pestañas que no se han usado en `hibernateAfter` segundos.
     /// La pestaña visible nunca se hiberna.
     public func hibernateIdleTabs(now: Date = Date()) {

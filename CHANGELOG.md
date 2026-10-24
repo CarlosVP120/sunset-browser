@@ -4,6 +4,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+### Added
+
+- Warning for extensions that use Chrome-only APIs WebKit doesn't have (such as `chrome.debugger` or `chrome.sidePanel`): shown before installing and next to the extension in the extensions panel.
+
 ### Fixed
 
 - Extension pages opened in a tab (for example SVG Gobbler's collection or an options page) load instead of staying blank, and keep working after restarting Sunset.

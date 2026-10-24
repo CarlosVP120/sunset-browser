@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let browser = browser
             engine.extensions.openTab = { url in browser.openTab(url).page }
             engine.extensions.orderedPages = { browser.allTabs.compactMap(\.page) }
+            engine.extensions.onExtensionsLoaded = { browser.reloadExtensionPages() }
         }
     }
 
