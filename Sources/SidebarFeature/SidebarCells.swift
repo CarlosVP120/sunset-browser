@@ -313,7 +313,9 @@ final class TabCellView: NSView, NSTextFieldDelegate {
         } else {
             favicon.image = symbol("globe", tint: colors.subtitle)
         }
-        let iconRequest = "\(FaviconCache.key(for: tab.url) ?? "")|\(tab.faviconURL?.absoluteString ?? "")"
+        // También al terminar de cargar: si antes falló (sitio con contraseña aún sin iniciar
+        // sesión), se vuelve a intentar; si ya está en la caché no se descarga nada.
+        let iconRequest = "\(FaviconCache.key(for: tab.url) ?? "")|\(tab.faviconURL?.absoluteString ?? "")|\(tab.isLoading)"
         if iconRequest != requestedIcon, !tab.isHome {
             requestedIcon = iconRequest
             let pageURL = tab.url, iconURL = tab.faviconURL

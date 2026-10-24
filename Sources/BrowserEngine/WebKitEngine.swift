@@ -69,7 +69,21 @@ public final class WebKitEngine: WebEngine {
         let page = WebKitPage(configuration: configuration(for: profile), extensionsHost: extensionsHost, downloads: downloads,
                               passwords: passwords)
         mediaRouter.register(page)
+        pages.add(page)
         return page
+    }
+
+    /// Las páginas abiertas (sin retenerlas), para `fetchWithPageSession`.
+    private let pages = NSHashTable<WebKitPage>.weakObjects()
+
+    /// Descarga un recurso desde una página abierta del mismo origen, con su sesión (cookies y
+    /// contraseña HTTP). Para iconos de sitios protegidos, que fuera de la página dan 401.
+    public func fetchWithPageSession(_ url: URL) async -> Data? {
+        let page = pages.allObjects.first { page in
+            guard let pageURL = page.webView.url else { return false }
+            return pageURL.scheme == url.scheme && pageURL.host() == url.host() && pageURL.port == url.port
+        }
+        return await page?.fetchInPage(url)
     }
 
     private func configuration(for profile: UUID?) -> WKWebViewConfiguration {
@@ -275,6 +289,21 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
             currentTime: (state["time"] as? NSNumber)?.doubleValue ?? 0,
             duration: (state["duration"] as? NSNumber)?.doubleValue ?? 0
         ))
+    }
+
+    /// `fetch` dentro de la página (mismo origen), devuelto en base64 para cruzar a Swift.
+    func fetchInPage(_ url: URL) async -> Data? {
+        let script = """
+            const response = await fetch(url, { credentials: 'include' });
+            if (!response.ok) return null;
+            const bytes = new Uint8Array(await response.arrayBuffer());
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+            return btoa(binary);
+            """
+        let result = try? await webView.callAsyncJavaScript(script, arguments: ["url": url.absoluteString],
+                                                             in: nil, contentWorld: .defaultClient)
+        return (result as? String).flatMap { Data(base64Encoded: $0) }
     }
 
     func printPage() {

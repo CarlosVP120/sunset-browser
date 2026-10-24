@@ -41,6 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Pausa las animaciones mientras haya un menú abierto (si no, el menú se congela).
         MenuTracking.start()
 
+        // Iconos de sitios con contraseña HTTP o sesión: se piden desde la página abierta.
+        FaviconCache.shared.sessionFetcher = { [engine] url in await engine.fetchWithPageSession(url) }
+
         engine.downloads.onFinish = { [browser] record in
             browser.showToast("Descargado: \(record.filename)", symbol: "arrow.down.circle.fill")
         }

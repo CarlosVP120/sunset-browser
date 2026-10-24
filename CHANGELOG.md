@@ -4,6 +4,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+### Fixed
+
+- Site icons for pages behind a password or a session (for example self-hosted Supabase Studio) are fetched through the open page, so they no longer show a globe.
+
 ## [0.1.1] - 2026-10-24
 
 ### Added

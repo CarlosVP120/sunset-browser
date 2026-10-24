@@ -11,6 +11,9 @@ public final class FaviconCache {
     /// Último icono pedido por dominio, para no repetir descargas.
     @ObservationIgnored private var requested: [String: URL] = [:]
     @ObservationIgnored private let directory: URL
+    /// Si la descarga normal falla (401 en sitios con contraseña HTTP o sesión), la app pide el
+    /// icono a la página abierta de ese sitio, con su sesión.
+    @ObservationIgnored public var sessionFetcher: (@MainActor (URL) async -> Data?)?
 
     init(directory: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appending(path: "MiNavegador/Favicons")) {
@@ -49,10 +52,19 @@ public final class FaviconCache {
             if iconURL == nil || source == candidate { return }
         }
 
-        guard let (data, response) = try? await URLSession.shared.data(from: candidate),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let image = NSImage(data: data), image.isValid
-        else { return }
+        var data: Data?
+        if let (downloaded, response) = try? await URLSession.shared.data(from: candidate),
+           (response as? HTTPURLResponse)?.statusCode == 200 {
+            data = downloaded
+        } else if let sessionFetcher {
+            data = await sessionFetcher(candidate)
+        }
+        guard let data, let image = NSImage(data: data), image.isValid else {
+            // Puede que aún no se haya iniciado sesión: otro intento más tarde (cuando la página
+            // declare su icono) vuelve a probar.
+            requested[host] = previous
+            return
+        }
         images[host] = image
         try? data.write(to: file, options: .atomic)
         try? candidate.absoluteString.write(to: sourceFile, atomically: true, encoding: .utf8)
