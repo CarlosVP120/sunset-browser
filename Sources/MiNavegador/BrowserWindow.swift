@@ -18,6 +18,8 @@ struct BrowserWindow: View {
     @State private var isResizingSidebar = false
     /// Dónde está la página en la ventana (para no poner vidrio debajo).
     @State private var contentFrame: CGRect = .zero
+    /// Con la barra lateral, la página redondea sus esquinas de ese lado; sin ella, llega a todos los bordes.
+    private var contentLeadingRadius: CGFloat { browser.showsSidebar ? Theme.cornerRadius : 0 }
     private static let windowSpace = "browser-window"
     @Environment(\.colorScheme) private var systemColorScheme
 
@@ -50,9 +52,11 @@ struct BrowserWindow: View {
                     // Para que el scroll vaya fluido, la página no se recorta ni se le pone sombra desde
                     // SwiftUI (obligaría a recomponerla en cada fotograma): las esquinas van en su propia
                     // capa (ver WebContentView) y la sombra se dibuja aparte, detrás.
-                    WebContentArea(browser: browser)
+                    // Sin márgenes (gapless): la página llega a los bordes de la ventana, que la redondea
+                    // por fuera; solo las esquinas junto a la barra lateral se redondean aquí.
+                    WebContentArea(browser: browser, leadingRadius: contentLeadingRadius)
                         .background(
-                            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                            ContentShape(leadingRadius: contentLeadingRadius)
                                 .fill(Color(white: 0.12))
                                 .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
                         )
@@ -67,9 +71,6 @@ struct BrowserWindow: View {
                         .overlay(alignment: .topTrailing) {
                             FindBar(browser: browser).padding([.top, .trailing], 10)
                         }
-                        .padding(.top, browser.showsToolbar ? 0 : 6)
-                        .padding(.leading, browser.showsSidebar ? 0 : 6)
-                        .padding([.trailing, .bottom], 6)
                 }
             }
 
@@ -185,8 +186,25 @@ struct BrowserWindow: View {
     }
 }
 
+/// La forma de la zona de la página: esquinas redondeadas solo del lado de la barra lateral.
+struct ContentShape: Shape {
+    var leadingRadius: CGFloat
+
+    var animatableData: CGFloat {
+        get { leadingRadius }
+        set { leadingRadius = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        UnevenRoundedRectangle(topLeadingRadius: leadingRadius, bottomLeadingRadius: leadingRadius,
+                               bottomTrailingRadius: 0, topTrailingRadius: 0, style: .continuous)
+            .path(in: rect)
+    }
+}
+
 private struct WebContentArea: View {
     let browser: Browser
+    let leadingRadius: CGFloat
 
     var body: some View {
         ZStack {
@@ -199,7 +217,7 @@ private struct WebContentArea: View {
 
     @ViewBuilder
     private var content: some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+        let shape = ContentShape(leadingRadius: leadingRadius)
         if let tab = browser.selectedTab, !tab.isHome {
             if let page = tab.page {
                 VStack(spacing: 0) {
@@ -208,7 +226,7 @@ private struct WebContentArea: View {
                             WebContentView(page: page, cornerRadius: Theme.cornerRadius)
                         }
                     } else {
-                        WebContentView(page: page, cornerRadius: Theme.cornerRadius)
+                        WebContentView(page: page, cornerRadius: leadingRadius, onlyLeadingCorners: true)
                     }
                 }
                 .animation(Theme.spring, value: browser.responsiveWidth)
@@ -252,6 +270,8 @@ private struct ParkedPagesView: NSViewRepresentable {
 struct WebContentView: NSViewRepresentable {
     let page: WebPage
     let cornerRadius: CGFloat
+    /// Gapless: solo se redondean las esquinas junto a la barra lateral.
+    var onlyLeadingCorners = false
 
     func makeNSView(context: Context) -> NSView {
         // Esquinas redondeadas en la capa: Core Animation las recorta sin dibujar la página de más.
@@ -264,6 +284,10 @@ struct WebContentView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: NSView, context: Context) {
+        container.layer?.cornerRadius = cornerRadius
+        container.layer?.maskedCorners = onlyLeadingCorners
+            ? [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+            : [.layerMinXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMinYCorner, .layerMaxXMaxYCorner]
         guard container.subviews.first !== page.view else { return }
         container.subviews.forEach { $0.removeFromSuperview() }
         page.view.frame = container.bounds
