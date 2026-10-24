@@ -62,6 +62,7 @@ Arc changed how many of us use the web, and then it stopped getting new features
 - **Today tabs** that close into an archive you can search and restore (⇧⌘T reopens the last one).
 - **Library** with downloads, media and archived tabs.
 - **Media controls** in the sidebar for whatever is playing in other tabs, plus Picture in Picture.
+- **Protected video (DRM)** through FairPlay, the same system Safari uses, so streaming services that support Safari can play in Sunset.
 - **Password manager** with autofill, encrypted locally with a Keychain key.
 - **Web extensions** through WebKit's extension support.
 - **Find in page, zoom and printing**, with the standard macOS shortcuts.
