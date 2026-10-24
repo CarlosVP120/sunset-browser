@@ -4,6 +4,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+### Fixed
+
+- Password autofill only suggests accounts for the page's origin, like Chrome and Arc: on `localhost` and IP addresses the port must match, and same-origin accounts are listed first.
+
 ## [0.1.0] - 2026-10-23
 
 First public version.

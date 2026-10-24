@@ -31,7 +31,12 @@ final class PasswordAutofill: NSObject, WKScriptMessageHandlerWithReply {
               let body = message.body as? [String: Any], let type = body["type"] as? String
         else { return replyHandler(nil, nil) }
 
-        var accounts = vault.credentials(forHost: origin.host)
+        var components = URLComponents()
+        components.scheme = origin.protocol
+        components.host = origin.host
+        components.port = origin.port == 0 ? nil : origin.port
+        guard let page = components.url else { return replyHandler(nil, nil) }
+        var accounts = vault.credentials(for: page)
         #if DEBUG
         // Solo para probar en desarrollo: una cuenta de ejemplo en localhost.
         if isLocal, ProcessInfo.processInfo.environment["SUNSET_AUTOFILL_DEMO"] == "1" {

@@ -25,12 +25,41 @@ public struct Credential: Codable, Equatable, Identifiable, Sendable {
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
-    /// ¿Sirve esta contraseña para `otherHost`? Vale el mismo sitio y sus subdominios
-    /// (la de google.com también aparece en accounts.google.com).
-    public func matches(host otherHost: String) -> Bool {
-        let other = otherHost.lowercased().hasPrefix("www.") ? String(otherHost.lowercased().dropFirst(4)) : otherHost.lowercased()
-        return other == host || other.hasSuffix("." + host) || host.hasSuffix("." + other)
-            || Self.site(of: other) == Self.site(of: host)
+    /// Qué tan bien sirve una contraseña para una página, de más a menos.
+    public enum Match: Int, Comparable, Sendable {
+        /// Mismo sitio en un dominio público: la de accounts.google.com en mail.google.com.
+        case sameSite
+        /// Mismo origen: esquema, dominio y puerto.
+        case sameOrigin
+
+        public static func < (lhs: Match, rhs: Match) -> Bool { lhs.rawValue < rhs.rawValue }
+    }
+
+    /// ¿Sirve esta contraseña en `page`? Como Chrome (y Arc): mismo origen, o mismo sitio en
+    /// dominios públicos con el mismo puerto. `localhost` y las IP solo valen con el origen exacto
+    /// (cada proyecto local vive en su puerto). Una contraseña de http sirve en https, no al revés.
+    public func match(for page: URL) -> Match? {
+        guard let pageScheme = page.scheme?.lowercased(), let scheme = url.scheme?.lowercased(),
+              pageScheme == scheme || (scheme == "http" && pageScheme == "https"),
+              let pageHost = page.host()?.lowercased(), !pageHost.isEmpty,
+              // Sin puerto escrito, ambos usan el de su esquema (80 en http, 443 en https).
+              Self.port(of: page) == Self.port(of: url) || (page.port == nil && url.port == nil)
+        else { return nil }
+        let other = pageHost.hasPrefix("www.") ? String(pageHost.dropFirst(4)) : pageHost
+        if other == host { return .sameOrigin }
+        guard !Self.isLocalOrIP(other), !Self.isLocalOrIP(host), Self.site(of: other) == Self.site(of: host) else { return nil }
+        return .sameSite
+    }
+
+    /// Puerto efectivo (el de la dirección o el del esquema).
+    static func port(of url: URL) -> Int? {
+        url.port ?? (url.scheme?.lowercased() == "https" ? 443 : url.scheme?.lowercased() == "http" ? 80 : nil)
+    }
+
+    /// localhost, *.localhost o una dirección IP: aquí no hay "sitio" que compartir.
+    static func isLocalOrIP(_ host: String) -> Bool {
+        host == "localhost" || host.hasSuffix(".localhost") || host.contains(":")
+            || host.split(separator: ".").allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isNumber) }
     }
 
     /// Dominio "registrable" aproximado: los dos últimos niveles (tres en dominios como .com.mx).
@@ -76,10 +105,14 @@ public final class PasswordVault {
         isLoaded = true
     }
 
-    /// Contraseñas que sirven para un sitio.
-    public func credentials(forHost host: String) -> [Credential] {
+    /// Contraseñas que sirven en una página: primero las de su mismo origen, después las del
+    /// mismo sitio; dentro de cada grupo, por usuario.
+    public func credentials(for page: URL) -> [Credential] {
         try? load()
-        return credentials.filter { $0.matches(host: host) }.sorted { $0.username < $1.username }
+        return credentials
+            .compactMap { credential in credential.match(for: page).map { (credential, $0) } }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.username < $1.0.username }
+            .map(\.0)
     }
 
     /// Añade contraseñas. Si ya había una para el mismo sitio y usuario, se actualiza.

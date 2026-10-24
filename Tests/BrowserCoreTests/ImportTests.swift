@@ -174,21 +174,55 @@ final class ImportTests: XCTestCase {
         XCTAssertNil(raw.range(of: Data("ana".utf8)))
 
         let reopened = PasswordVault(fileURL: file, keyProvider: { key })
-        XCTAssertEqual(reopened.credentials(forHost: "login.example.com").map(\.username), ["ana"])
-        XCTAssertEqual(reopened.credentials(forHost: "example.org"), [])
+        XCTAssertEqual(reopened.credentials(for: URL(string: "https://login.example.com")!).map(\.username), ["ana"])
+        XCTAssertEqual(reopened.credentials(for: URL(string: "https://example.org")!), [])
 
         let wrongKey = PasswordVault(fileURL: file, keyProvider: { SymmetricKey(size: .bits256) })
         XCTAssertThrowsError(try wrongKey.load())
     }
 
     func testCredentialSiteMatching() {
-        let credential = Credential(url: URL(string: "https://accounts.google.com")!, username: "a", password: "b")
-        XCTAssertTrue(credential.matches(host: "google.com"))
-        XCTAssertTrue(credential.matches(host: "mail.google.com"))
-        XCTAssertFalse(credential.matches(host: "google.com.evil.io"))
-        let mexico = Credential(url: URL(string: "https://www.banco.com.mx")!, username: "a", password: "b")
-        XCTAssertTrue(mexico.matches(host: "login.banco.com.mx"))
-        XCTAssertFalse(mexico.matches(host: "otro.com.mx"))
+        func page(_ string: String) -> URL { URL(string: string)! }
+        let credential = Credential(url: page("https://accounts.google.com"), username: "a", password: "b")
+        XCTAssertEqual(credential.match(for: page("https://accounts.google.com/signin")), .sameOrigin)
+        XCTAssertEqual(credential.match(for: page("https://google.com")), .sameSite)
+        XCTAssertEqual(credential.match(for: page("https://mail.google.com")), .sameSite)
+        XCTAssertNil(credential.match(for: page("https://google.com.evil.io")))
+        XCTAssertNil(credential.match(for: page("http://accounts.google.com")), "una de https no se usa en http")
+        let mexico = Credential(url: page("https://www.banco.com.mx"), username: "a", password: "b")
+        XCTAssertEqual(mexico.match(for: page("https://login.banco.com.mx")), .sameSite)
+        XCTAssertNil(mexico.match(for: page("https://otro.com.mx")))
+        let http = Credential(url: page("http://example.com"), username: "a", password: "b")
+        XCTAssertEqual(http.match(for: page("https://example.com")), .sameOrigin, "una de http sirve en https")
+    }
+
+    /// En localhost y en las IP cada puerto es otro proyecto: solo vale el origen exacto (como Arc).
+    func testLocalCredentialsNeedTheExactOrigin() {
+        func page(_ string: String) -> URL { URL(string: string)! }
+        let local = Credential(url: page("http://localhost:3005/login"), username: "demo@local.test", password: "x")
+        XCTAssertEqual(local.match(for: page("http://localhost:3005/")), .sameOrigin)
+        XCTAssertNil(local.match(for: page("http://localhost:3000/")))
+        XCTAssertNil(local.match(for: page("http://localhost/")))
+        XCTAssertNil(local.match(for: page("http://app.localhost:3005/")))
+        let ip = Credential(url: page("http://192.168.1.10:8080"), username: "admin", password: "x")
+        XCTAssertEqual(ip.match(for: page("http://192.168.1.10:8080/panel")), .sameOrigin)
+        XCTAssertNil(ip.match(for: page("http://10.0.1.10:8080")), "otra IP no comparte sitio")
+        XCTAssertNil(ip.match(for: page("http://192.168.1.10")))
+    }
+
+    @MainActor
+    func testVaultListsSameOriginFirst() throws {
+        let key = SymmetricKey(size: .bits256)
+        let file = FileManager.default.temporaryDirectory.appending(path: "vault-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let vault = PasswordVault(fileURL: file, keyProvider: { key })
+        try vault.add([
+            Credential(url: URL(string: "https://google.com")!, username: "aaa", password: "1"),
+            Credential(url: URL(string: "https://accounts.google.com")!, username: "zzz", password: "2"),
+            Credential(url: URL(string: "http://localhost:3000")!, username: "otro", password: "3"),
+        ])
+        XCTAssertEqual(vault.credentials(for: URL(string: "https://accounts.google.com/x")!).map(\.username), ["zzz", "aaa"])
+        XCTAssertEqual(vault.credentials(for: URL(string: "http://localhost:3005")!), [])
     }
 
     // MARK: Aplicar en Sunset
