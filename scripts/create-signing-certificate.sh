@@ -27,10 +27,11 @@ extendedKeyUsage = critical, codeSigning
 basicConstraints = critical, CA:false
 EOF
 
-# Certificado de 10 años con su clave privada.
-openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$WORK/cert.cnf" \
+# Certificado de 10 años con su clave privada. Con el openssl del sistema (LibreSSL): el .p12 de
+# OpenSSL 3 (Homebrew) usa un cifrado que el Llavero no sabe importar.
+/usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$WORK/cert.cnf" \
     -keyout "$WORK/key.pem" -out "$WORK/cert.pem" 2>/dev/null
-openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" -name "$NAME" \
+/usr/bin/openssl pkcs12 -export -inkey "$WORK/key.pem" -in "$WORK/cert.pem" -name "$NAME" \
     -out "$WORK/cert.p12" -passout "pass:$PASSWORD"
 
 # Al Llavero de inicio de sesión; solo codesign puede usar la clave sin preguntar.
