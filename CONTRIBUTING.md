@@ -35,6 +35,15 @@ You can also open `Package.swift` in Xcode to edit and debug, but run the bundle
 
 Useful environment variables are listed in the [README](README.md#build-from-source).
 
+### Stable local signing (no repeated Keychain prompts)
+
+Sunset encrypts saved passwords with a key in your Keychain, and macOS remembers which app may read it by its code signature. Ad-hoc builds get a new signature every time, so macOS asks for your Mac password after each build. To avoid it, create a self-signed certificate once:
+
+1. Open **Keychain Access › Certificate Assistant › Create a Certificate…**
+2. Name it exactly **Sunset Local Signing**, set **Certificate Type** to **Code Signing**, and create it.
+
+`scripts/bundle.sh` uses it automatically when it exists. The next launch asks one last time: choose **Always Allow**.
+
 ## Project layout
 
 The app is a Swift package with one module per area (see the [architecture table](README.md#architecture)). Some guidelines:

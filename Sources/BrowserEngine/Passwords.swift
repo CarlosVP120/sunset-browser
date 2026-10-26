@@ -125,6 +125,8 @@ public final class PasswordVault {
             if let index = credentials.firstIndex(where: { $0.host == credential.host && $0.username == credential.username }) {
                 if credentials[index].password != credential.password {
                     credentials[index].password = credential.password
+                    // La más reciente es la que se usa primero (inicio de sesión HTTP).
+                    credentials[index].created = Date()
                     changed += 1
                 }
             } else {

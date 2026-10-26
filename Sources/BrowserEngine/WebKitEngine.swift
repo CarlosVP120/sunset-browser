@@ -40,6 +40,9 @@ public final class WebKitEngine: WebEngine {
         configuration.userContentController.addUserScript(
             WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        )
         autofill.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
@@ -117,6 +120,9 @@ public final class WebKitEngine: WebEngine {
             profileConfiguration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
             profileConfiguration.userContentController.addUserScript(
                 WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
+            profileConfiguration.userContentController.addUserScript(
+                WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
             )
             autofill.install(in: profileConfiguration.userContentController)
         }
@@ -352,6 +358,11 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         let disposition = (navigationResponse.response as? HTTPURLResponse)?
             .value(forHTTPHeaderField: "Content-Disposition")?.lowercased() ?? ""
         if !navigationResponse.canShowMIMEType || disposition.hasPrefix("attachment") {
+            // Un `blob:` que la página pone en un marco no es una descarga que hayas pedido (p. ej. un
+            // PDF sin tipo en una vista previa; ver PDFEmbedScript): no se guarda en Descargas.
+            if !navigationResponse.isForMainFrame, navigationResponse.response.url?.scheme == "blob" {
+                return .cancel
+            }
             return .download
         }
         return .allow

@@ -62,13 +62,23 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# Firma. Sin identidad, firma local (ad hoc): todo funciona menos las llaves de acceso (passkeys).
-# Con SUNSET_SIGN_IDENTITY="Developer ID Application: …" y SUNSET_PROFILE=<perfil .provisionprofile
-# con el permiso de navegador>, se firma con los permisos de Resources/SunsetBrowser.entitlements.
-if [[ -n "${SUNSET_SIGN_IDENTITY:-}" ]]; then
-    [[ -n "${SUNSET_PROFILE:-}" ]] && cp "$SUNSET_PROFILE" "$APP/Contents/embedded.provisionprofile"
+# Firma. Una firma estable hace que macOS recuerde el permiso del Llavero (la clave de las
+# contraseñas): con firma local (ad hoc) cada compilación es "otra app" y pide la contraseña del Mac.
+# - SUNSET_SIGN_IDENTITY="Developer ID Application: …" o "Apple Development: …" para firmar con ella.
+# - Si no, se usa el certificado "Sunset Local Signing" del Llavero, si existe (ver CONTRIBUTING.md).
+# - Sin ninguno, firma ad hoc: todo funciona, pero el Llavero vuelve a preguntar en cada compilación.
+# Los permisos de Resources/SunsetBrowser.entitlements (llaves de acceso) solo se añaden con
+# SUNSET_PROFILE=<perfil .provisionprofile con el permiso de navegador>: sin perfil, macOS no abre la app.
+IDENTITY="${SUNSET_SIGN_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]] && security find-identity -p codesigning 2>/dev/null | grep -q '"Sunset Local Signing"'; then
+    IDENTITY="Sunset Local Signing"
+fi
+if [[ -n "$IDENTITY" && -n "${SUNSET_PROFILE:-}" ]]; then
+    cp "$SUNSET_PROFILE" "$APP/Contents/embedded.provisionprofile"
     codesign --force --options runtime --timestamp --entitlements Resources/SunsetBrowser.entitlements \
-        --sign "$SUNSET_SIGN_IDENTITY" "$APP" >/dev/null
+        --sign "$IDENTITY" "$APP" >/dev/null
+elif [[ -n "$IDENTITY" ]]; then
+    codesign --force --options runtime --sign "$IDENTITY" "$APP" >/dev/null
 else
     codesign --force --sign - "$APP" >/dev/null
 fi

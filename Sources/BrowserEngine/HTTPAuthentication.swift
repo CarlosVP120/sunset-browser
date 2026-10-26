@@ -39,9 +39,12 @@ extension WebKitPage {
         if let known = authAnswers[key], !(challenge.previousFailureCount > 0 && triedKnown) {
             return (.useCredential, known)
         }
-        // Primer intento con la única cuenta guardada.
-        let saved = passwords?.credentials(for: site) ?? []
-        if authAnswers[key] == nil, challenge.previousFailureCount == 0, saved.count == 1, let account = saved.first {
+        // Primer intento con la cuenta guardada más reciente de este origen (la última que funcionó),
+        // como Chrome: así la sesión sigue tras reiniciar Sunset aunque haya otras guardadas.
+        let saved = (passwords?.credentials(for: site) ?? [])
+            .filter { $0.match(for: site) == .sameOrigin }
+            .sorted { $0.created > $1.created }
+        if authAnswers[key] == nil, challenge.previousFailureCount == 0, let account = saved.first {
             let credential = URLCredential(user: account.username, password: account.password, persistence: .forSession)
             authAnswers[key] = credential
             return (.useCredential, credential)
