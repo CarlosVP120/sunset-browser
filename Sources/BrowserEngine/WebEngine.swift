@@ -70,6 +70,8 @@ public protocol WebPage: AnyObject {
     func pageSource() async -> String?
     /// Pausa audio y vídeo de la página.
     func pauseAllMedia()
+    /// Si se está escribiendo en la página (un campo, un editor): ahí ⌘Z deshace lo escrito.
+    func isEditingText() async -> Bool
 
     /// Cambios en el audio/vídeo principal de la página (`nil` si no hay ninguno).
     var onMediaChange: (@MainActor (MediaState?) -> Void)? { get set }

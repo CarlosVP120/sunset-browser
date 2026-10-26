@@ -280,6 +280,20 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         webView.pauseAllMediaPlayback()
     }
 
+    func isEditingText() async -> Bool {
+        // Un iframe con el foco (p. ej. el editor de Google Docs) cuenta como escribir: desde aquí
+        // no se ve su interior y es mejor no quitarle el ⌘Z.
+        let script = """
+        (() => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return document.designMode === 'on';
+          return el.isContentEditable || el.tagName === 'IFRAME' || el.tagName === 'TEXTAREA' ||
+            (el.tagName === 'INPUT' && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file', 'image'].includes(el.type));
+        })()
+        """
+        return (try? await webView.evaluateJavaScript(script) as? Bool) ?? false
+    }
+
     // MARK: Audio y vídeo
 
     var onMediaChange: (@MainActor (MediaState?) -> Void)?

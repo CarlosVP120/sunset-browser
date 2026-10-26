@@ -6,10 +6,12 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Added
 
+- ⌘Z reopens the last closed tab, like Arc (it still undoes typing in text fields). Reopened tabs, with ⌘Z or ⇧⌘T, go back to their exact spot in the sidebar with their history.
 - Warning for extensions that use Chrome-only APIs WebKit doesn't have (such as `chrome.debugger` or `chrome.sidePanel`): shown before installing and next to the extension in the extensions panel.
 
 ### Fixed
 
+- Auto picture-in-picture only kicks in for videos with sound, so muted autoplaying videos (the X timeline, GIFs) no longer pop out when switching tabs.
 - PDFs embedded as `blob:` in a frame (attachment previews in webmails) now display with a native viewer instead of staying blank, even when the page's security policy blocks WebKit's own viewer (`frame-ancestors`, `connect-src`), and frames no longer save those blobs to Downloads.
 - Sites behind HTTP authentication sign in automatically with the most recently saved password for that address, so the session survives restarting Sunset even with several saved accounts.
 - Extension pages opened in a tab (for example SVG Gobbler's collection or an options page) load instead of staying blank, and keep working after restarting Sunset.

@@ -30,6 +30,7 @@ final class FakePage: WebPage {
     func snapshot() async -> NSImage? { nil }
     func pageSource() async -> String? { "<html></html>" }
     func pauseAllMedia() {}
+    func isEditingText() async -> Bool { false }
     var onMediaChange: (@MainActor (MediaState?) -> Void)?
     private(set) var pictureInPicture: [Bool] = []
     private(set) var mediaCommands: [MediaCommand] = []
@@ -105,6 +106,21 @@ final class BrowserTests: XCTestCase {
 
         browser.reopenLastClosedTab()
         XCTAssertEqual(browser.selectedTab?.url?.host(), "normal.com")
+        XCTAssertTrue(browser.archive.isEmpty)
+    }
+
+    func testReopeningClosedTabPutsItBackWhereItWas() {
+        let (browser, _) = makeBrowser()
+        let c = browser.openTab(URL(string: "https://c.com"))
+        let b = browser.openTab(URL(string: "https://b.com"))
+        let a = browser.openTab(URL(string: "https://a.com"))
+        XCTAssertEqual(browser.activeSpace.tabs.map(\.id), [a.id, b.id, c.id])
+
+        browser.close(b)
+        browser.reopenLastClosedTab()
+
+        XCTAssertEqual(browser.activeSpace.tabs.map(\.id), [a.id, b.id, c.id])
+        XCTAssertEqual(browser.selectedTab?.id, b.id)
         XCTAssertTrue(browser.archive.isEmpty)
     }
 

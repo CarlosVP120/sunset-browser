@@ -22,7 +22,7 @@ struct BrowserCommands: Commands {
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Reabrir pestaña cerrada") { browser.reopenLastClosedTab() }
                     .keyboardShortcut("t", modifiers: [.command, .shift])
-                    .disabled(browser.archive.isEmpty)
+                    .disabled(!browser.canReopenClosedTab)
                 Group {
                     Divider()
                     Button("Nueva carpeta") { _ = browser.newFolder() }

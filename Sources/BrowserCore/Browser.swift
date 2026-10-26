@@ -25,6 +25,14 @@ public final class Browser {
     /// Reproductores que el usuario quitó de la barra lateral (vuelven si suena otra vez).
     public internal(set) var dismissedMediaTabIDs: Set<BrowserTab.ID> = []
     @ObservationIgnored private var lastVisibleTabID: BrowserTab.ID?
+    /// Pestañas cerradas en esta sesión con su sitio, para reabrirlas donde estaban y con su
+    /// historial (⌘Z, ⇧⌘T). La más reciente al final.
+    private var recentlyClosed: [ClosedTab] = []
+    private struct ClosedTab {
+        let tab: BrowserTab
+        let spaceID: Space.ID
+        let index: Int
+    }
     /// Ventana con la lista de atajos de teclado.
     public var showsShortcuts = false
     /// Aviso breve abajo ("Enlace copiado").
@@ -261,6 +269,8 @@ public final class Browser {
         if keepsTab { tab.resetToPinned() } else { tab.hibernate() }
         if !keepsTab {
             space.remove(tab)
+            recentlyClosed.append(ClosedTab(tab: tab, spaceID: space.id, index: index))
+            recentlyClosed = Array(recentlyClosed.suffix(Self.recentlyClosedLimit))
             if let url = tab.url, !tab.isHome {
                 archive.insert(ArchivedTab(id: tab.id, url: url, title: tab.displayTitle, closedAt: Date()), at: 0)
                 archive = Array(archive.prefix(Self.archiveLimit))
@@ -283,10 +293,26 @@ public final class Browser {
 
     public func restore(_ archived: ArchivedTab) {
         archive.removeAll { $0.id == archived.id }
+        recentlyClosed.removeAll { $0.tab.id == archived.id }
         openTab(archived.url)
     }
 
+    static let recentlyClosedLimit = 20
+
+    public var canReopenClosedTab: Bool { !recentlyClosed.isEmpty || !archive.isEmpty }
+
+    /// Como en Arc: la última pestaña cerrada vuelve a su espacio y a su sitio de la lista, con su
+    /// historial. Si se cerró en una sesión anterior, se abre desde el archivo.
     public func reopenLastClosedTab() {
+        while let closed = recentlyClosed.popLast() {
+            guard let space = spaces.first(where: { $0.id == closed.spaceID }),
+                  tab(withID: closed.tab.id) == nil else { continue }
+            archive.removeAll { $0.id == closed.tab.id }
+            space.tabs.insert(closed.tab, at: min(closed.index, space.tabs.count))
+            activeSpaceID = space.id
+            select(closed.tab)
+            return
+        }
         if let last = archive.first { restore(last) }
     }
 
