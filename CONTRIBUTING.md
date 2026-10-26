@@ -39,8 +39,11 @@ Useful environment variables are listed in the [README](README.md#build-from-sou
 
 Sunset encrypts saved passwords with a key in your Keychain, and macOS remembers which app may read it by its code signature. Ad-hoc builds get a new signature every time, so macOS asks for your Mac password after each build. To avoid it, create a self-signed certificate once:
 
-1. Open **Keychain Access › Certificate Assistant › Create a Certificate…**
-2. Name it exactly **Sunset Local Signing**, set **Certificate Type** to **Code Signing**, and create it.
+```bash
+./scripts/create-signing-certificate.sh
+```
+
+Or by hand: **Keychain Access › Certificate Assistant › Create a Certificate…**, named exactly **Sunset Local Signing**, with **Certificate Type** set to **Code Signing**.
 
 `scripts/bundle.sh` uses it automatically when it exists. The next launch asks one last time: choose **Always Allow**.
 
