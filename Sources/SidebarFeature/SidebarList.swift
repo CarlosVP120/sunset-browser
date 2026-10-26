@@ -33,7 +33,7 @@ struct SidebarListView: NSViewRepresentable {
         table.style = .plain
         table.backgroundColor = .clear
         table.selectionHighlightStyle = .none
-        table.intercellSpacing = NSSize(width: 0, height: 2)
+        table.intercellSpacing = NSSize(width: 0, height: 4)
         table.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         table.focusRingType = .none
         table.usesAutomaticRowHeights = false
