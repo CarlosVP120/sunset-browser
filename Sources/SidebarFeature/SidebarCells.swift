@@ -85,15 +85,19 @@ final class SidebarRowView: NSTableRowView {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        hoverLayer.frame = bounds
-        activeLayer.frame = bounds
+        // La fila incluye la separación con la siguiente (`intercellSpacing`): el fondo la deja libre
+        // para que, con hover o seleccionadas, las pestañas no se vean pegadas.
+        let gap = (superview as? NSTableView)?.intercellSpacing.height ?? 0
+        let pill = bounds.insetBy(dx: 0, dy: gap / 2)
+        hoverLayer.frame = pill
+        activeLayer.frame = pill
         shineLayer.frame = activeLayer.bounds
         shineMask.frame = shineLayer.bounds
         shineMask.path = CGPath(roundedRect: activeLayer.bounds.insetBy(dx: 0.5, dy: 0.5),
                                 cornerWidth: Theme.cornerRadius, cornerHeight: Theme.cornerRadius, transform: nil)
-        let border = bounds.insetBy(dx: -1, dy: -1)
+        let border = pill.insetBy(dx: -1, dy: -1)
         developerLayer.frame = bounds
-        developerLayer.path = CGPath(roundedRect: border.offsetBy(dx: -bounds.minX, dy: -bounds.minY).insetBy(dx: 0.8, dy: 0.8),
+        developerLayer.path = CGPath(roundedRect: border.insetBy(dx: 0.8, dy: 0.8),
                                      cornerWidth: Theme.cornerRadius + 2, cornerHeight: Theme.cornerRadius + 2, transform: nil)
         CATransaction.commit()
     }
