@@ -37,11 +37,12 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         configuration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
+        configuration.userContentController.add(mediaRouter, name: PDFEmbedScript.handlerName)
         configuration.userContentController.addUserScript(
             WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
         configuration.userContentController.addUserScript(
-            WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+            WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         autofill.install(in: configuration.userContentController)
 
@@ -118,11 +119,12 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: ConsoleScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.add(mediaRouter, name: ConsoleScript.handlerName)
+            profileConfiguration.userContentController.add(mediaRouter, name: PDFEmbedScript.handlerName)
             profileConfiguration.userContentController.addUserScript(
                 WKUserScript(source: SiteQuirks.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             )
             profileConfiguration.userContentController.addUserScript(
-                WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+                WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
             )
             autofill.install(in: profileConfiguration.userContentController)
         }
@@ -198,6 +200,8 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     private(set) weak var passwords: PasswordVault?
     /// La contraseña recién escrita, hasta saber si el servidor la acepta.
     var pendingAuthentication: Credential?
+    /// Visores nativos de PDF encima de marcos de la página (ver `PDFOverlay.swift`).
+    var pdfOverlays: [Int: NSView] = [:]
     /// Autenticación HTTP por origen (esquema, servidor y puerto): la respuesta en uso, la hoja
     /// abierta (las peticiones a la vez esperan la misma), cuándo se canceló y los fallos seguidos.
     var authAnswers: [String: URLCredential] = [:]
@@ -516,6 +520,8 @@ final class MediaMessageRouter: NSObject, WKScriptMessageHandler {
             page.receiveFavicon(message.body as? String)
         } else if message.name == ConsoleScript.handlerName {
             page.receiveConsole(message.body)
+        } else if message.name == PDFEmbedScript.handlerName {
+            page.receivePDFMessage(message.body)
         } else {
             page.receiveMediaMessage(message.body)
         }

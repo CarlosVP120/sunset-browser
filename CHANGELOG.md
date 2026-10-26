@@ -10,7 +10,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Fixed
 
-- PDFs embedded as `blob:` without a type or in a sandboxed frame (attachment previews in webmails) now display instead of staying blank, and frames no longer save those blobs to Downloads.
+- PDFs embedded as `blob:` in a frame (attachment previews in webmails) now display with a native viewer instead of staying blank, even when the page's security policy blocks WebKit's own viewer (`frame-ancestors`, `connect-src`), and frames no longer save those blobs to Downloads.
 - Sites behind HTTP authentication sign in automatically with the most recently saved password for that address, so the session survives restarting Sunset even with several saved accounts.
 - Extension pages opened in a tab (for example SVG Gobbler's collection or an options page) load instead of staying blank, and keep working after restarting Sunset.
 
