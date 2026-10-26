@@ -662,6 +662,8 @@ public final class Browser {
 
     /// Avisa a cada página de si es la visible (lo necesitan las extensiones) y, al cambiar de
     /// pestaña, pasa a PiP el vídeo que se deja sonando y saca de PiP el de la pestaña a la que vuelves.
+    /// Como Arc, solo si el vídeo tiene sonido: los que se reproducen solos y en silencio (el timeline
+    /// de X, GIFs, fondos animados) no se quieren en PiP.
     private func syncActivePage() {
         let selectedID = selectedTab?.id
         for tab in allTabs {
@@ -669,7 +671,8 @@ public final class Browser {
         }
         guard lastVisibleTabID != selectedID else { return }
         if autoPictureInPicture, let previousID = lastVisibleTabID, let previous = tab(withID: previousID),
-           let media = previous.media, media.isPlaying, media.hasVideo, !media.isInPictureInPicture {
+           let media = previous.media, media.isPlaying, media.hasVideo, !media.isMuted,
+           !media.isInPictureInPicture {
             previous.page?.setPictureInPicture(true)
         }
         if let current = selectedTab, current.media?.isInPictureInPicture == true {
