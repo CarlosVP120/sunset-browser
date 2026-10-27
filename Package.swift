@@ -40,6 +40,7 @@ let package = Package(
             ]
         ),
         .testTarget(name: "BrowserCoreTests", dependencies: ["BrowserCore", "BrowserImport"]),
+        .testTarget(name: "BrowserEngineTests", dependencies: ["BrowserEngine"]),
         // Renderiza vistas a PNG para revisarlas sin abrir la app.
         .testTarget(
             name: "UISnapshotTests",

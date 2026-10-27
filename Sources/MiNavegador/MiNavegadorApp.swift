@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UndoCloseTab.start(browser: browser)
 
         // Iconos de sitios con contraseña HTTP o sesión: se piden desde la página abierta.
+        engine.openTabForServiceWorker = { [browser] url in browser.openTab(url).wake() }
         FaviconCache.shared.sessionFetcher = { [engine] url in await engine.fetchWithPageSession(url) }
 
         engine.downloads.onFinish = { [browser] record in

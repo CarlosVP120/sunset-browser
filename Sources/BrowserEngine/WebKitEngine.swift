@@ -48,6 +48,8 @@ public final class WebKitEngine: WebEngine {
         )
         autofill.install(in: configuration.userContentController)
         notifications.install(in: configuration.userContentController)
+        WebNotifications.enable(on: configuration.preferences)
+        notifications.attach(to: configuration.websiteDataStore)
 
         if #available(macOS 15.4, *) {
             let host = WebExtensionsHost()
@@ -58,7 +60,15 @@ public final class WebKitEngine: WebEngine {
             extensionsHost = nil
         }
         notifications.pages = { [weak self] in self?.pages.allObjects ?? [] }
+        notifications.dataStore = { [weak self] profile in
+            self?.configuration(for: profile).websiteDataStore ?? .default()
+        }
+        notifications.openTab = { [weak self] url in self?.openTabForServiceWorker?(url) as? WebKitPage }
     }
+
+    /// Abre una pestaña para un service worker (`clients.openWindow`, p. ej. al pulsar una
+    /// notificación de Web Push) y devuelve su página.
+    public var openTabForServiceWorker: ((URL) -> WebPage?)?
 
     /// "Version/27.0 Safari/605.1.15", con la versión de Safari instalada en el Mac.
     static var safariUserAgentSuffix: String {
@@ -110,6 +120,8 @@ public final class WebKitEngine: WebEngine {
         let profileConfiguration = configuration.copy() as! WKWebViewConfiguration
         profileConfiguration.websiteDataStore = WKWebsiteDataStore(forIdentifier: profile)
         WebKitFeatures.applySmoothScrolling(to: profileConfiguration.preferences)
+        WebNotifications.enable(on: profileConfiguration.preferences)
+        notifications.attach(to: profileConfiguration.websiteDataStore)
         if profileConfiguration.userContentController !== configuration.userContentController {
             profileConfiguration.userContentController.addUserScript(
                 WKUserScript(source: MediaScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
@@ -428,6 +440,14 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
                  initiatedByFrame frame: WKFrameInfo) async -> String? {
         guard prompt == NotificationScript.permissionQuery, frame.isMainFrame else { return nil }
         return notifications?.permissionValue(for: frame.securityOrigin)
+    }
+
+    /// Un service worker pide traer su pestaña (`client.focus()`, p. ej. al pulsar su notificación).
+    @objc(_focusWebViewFromServiceWorker:)
+    func focusFromServiceWorker(_ webView: WKWebView) {
+        NSApp.activate()
+        webView.window?.makeKeyAndOrderFront(nil)
+        onRequestActivate?()
     }
 
     // MARK: Modo desarrollador

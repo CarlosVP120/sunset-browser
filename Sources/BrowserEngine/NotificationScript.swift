@@ -4,8 +4,8 @@ import Foundation
 /// el permiso se queda en "default" y nunca se muestra un aviso (Safari usa funciones privadas de
 /// WebKit para las suyas). Este script la sustituye por una que pasa cada notificación a
 /// `WebNotifications`, que la enseña como notificación de macOS. Cubre `new Notification(…)`,
-/// `Notification.requestPermission()`, `registration.showNotification(…)` (sin service worker
-/// detrás: solo mientras la página está abierta) y `navigator.permissions.query({ name: 'notifications' })`.
+/// `Notification.requestPermission()`, `navigator.permissions.query({ name: 'notifications' })` y
+/// `registration.pushManager` (Web Push, ver `WebPushService`).
 ///
 /// El permiso se lee de forma síncrona (`Notification.permission` no es una promesa) con un
 /// `prompt()` especial que Sunset contesta al momento sin mostrar nada; así es correcto desde el
@@ -87,15 +87,53 @@ enum NotificationScript {
 
       Object.defineProperty(window, 'Notification', { value: Notification, writable: true, configurable: true });
 
-      // Las webs que notifican desde su service worker (`registration.showNotification`): se
-      // muestran igual, aunque el clic solo trae la pestaña (no llega al service worker).
-      if (window.ServiceWorkerRegistration) {
-        const proto = ServiceWorkerRegistration.prototype;
-        proto.showNotification = function (title, options = {}) {
-          if (current() !== 'granted') return Promise.reject(new TypeError('No notification permission has been granted for this origin.'));
-          return post(title, options).then(() => undefined);
+      // Web Push: WebKit solo sabe suscribirse con el servicio de Safari (exclusivo de Apple), así
+      // que `pushManager` de cada registro pide las suscripciones a Sunset (ver `WebPushService`).
+      // Los mensajes y `registration.showNotification` sí los lleva WebKit hasta el service worker.
+      if (window.ServiceWorkerRegistration && window.PushManager) {
+        const toBase64URL = key => {
+          if (key == null) return null;
+          if (typeof key === 'string') return key.replace(/=+$/, '');
+          const bytes = new Uint8Array(ArrayBuffer.isView(key) ? key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) : key);
+          return btoa(String.fromCharCode(...bytes)).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
         };
-        proto.getNotifications = function () { return Promise.resolve([]); };
+        const fromBase64URL = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer;
+        const subscriptionFrom = (info, scope, options) => {
+          if (!info) return null;
+          const subscription = Object.create(PushSubscription.prototype);
+          const keys = { p256dh: info.p256dh, auth: info.auth };
+          Object.defineProperties(subscription, {
+            endpoint: { value: info.endpoint, enumerable: true },
+            expirationTime: { value: null, enumerable: true },
+            options: { value: Object.freeze({ userVisibleOnly: true, applicationServerKey: info.key ? fromBase64URL(info.key) : null }), enumerable: true },
+            getKey: { value: name => keys[name] ? fromBase64URL(keys[name]) : null },
+            toJSON: { value: () => ({ endpoint: info.endpoint, expirationTime: null, keys }) },
+            unsubscribe: { value: () => handler.postMessage({ type: 'unsubscribe', scope }).then(Boolean) },
+          });
+          return subscription;
+        };
+        const managers = new WeakMap();
+        const pushManagerFor = registration => {
+          if (managers.has(registration)) return managers.get(registration);
+          const scope = registration.scope;
+          const manager = Object.create(PushManager.prototype);
+          Object.defineProperties(manager, {
+            subscribe: { value: async (options = {}) => {
+              const key = toBase64URL(options.applicationServerKey);
+              const result = await handler.postMessage({ type: 'subscribe', scope, key });
+              if (!result || result.error) throw new DOMException(result?.error || 'Push subscription failed', result?.name || 'AbortError');
+              setPermission('granted');
+              return subscriptionFrom(result, scope, options);
+            } },
+            getSubscription: { value: async () => subscriptionFrom(await handler.postMessage({ type: 'getSubscription', scope }), scope) },
+            permissionState: { value: async () => current() === 'default' ? 'prompt' : current() },
+          });
+          managers.set(registration, manager);
+          return manager;
+        };
+        Object.defineProperty(ServiceWorkerRegistration.prototype, 'pushManager', {
+          get() { return pushManagerFor(this); }, configurable: true, enumerable: true,
+        });
       }
 
       const query = navigator.permissions?.query?.bind(navigator.permissions);
