@@ -31,7 +31,7 @@ Arc changed how many of us use the web, and then it stopped getting new features
 
 - **Native and light.** Pure Swift on top of the system WebKit. No Electron, no bundled Chromium, no account required, and a fraction of the memory and disk of Chromium-based browsers.
 - **Feels like Arc.** Spaces with their own colors, pinned tabs that remember their home, folders, favorites, a Command Bar and smooth animations everywhere.
-- **Your data stays yours.** Everything is stored locally. Passwords are encrypted with a key kept in your Keychain. Nothing is sent anywhere.
+- **Your data stays yours.** Everything is stored locally. Passwords are encrypted, with the key in a file only your user can read (like Firefox without a primary password). Nothing is sent anywhere.
 - **Bring everything with you.** The first launch imports spaces, pinned tabs, folders, bookmarks, history, passwords and signed-in sessions from Arc, Chrome, Safari, Brave or Edge, without touching the original browser.
 
 ## Features
@@ -63,7 +63,7 @@ Arc changed how many of us use the web, and then it stopped getting new features
 - **Library** with downloads, media and archived tabs.
 - **Media controls** in the sidebar for whatever is playing in other tabs, plus Picture in Picture.
 - **Protected video (DRM)** through FairPlay, the same system Safari uses, so streaming services that support Safari can play in Sunset.
-- **Password manager** with autofill, encrypted locally with a Keychain key.
+- **Password manager** with autofill, encrypted locally.
 - **Web extensions** through WebKit's extension support.
 - **Find in page, zoom and printing**, with the standard macOS shortcuts.
 

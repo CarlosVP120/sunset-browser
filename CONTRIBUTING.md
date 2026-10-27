@@ -35,9 +35,9 @@ You can also open `Package.swift` in Xcode to edit and debug, but run the bundle
 
 Useful environment variables are listed in the [README](README.md#build-from-source).
 
-### Stable local signing (no repeated Keychain prompts)
+### Stable local signing (optional)
 
-Sunset encrypts saved passwords with a key in your Keychain, and macOS remembers which app may read it by its code signature. Ad-hoc builds get a new signature every time, so macOS asks for your Mac password after each build. To avoid it, create a self-signed certificate once:
+Ad-hoc builds get a new signature every time, so macOS treats each build as a different app for the permissions it remembers by signature (camera, microphone, screen recording). To keep one stable signature, create a self-signed certificate once:
 
 ```bash
 ./scripts/create-signing-certificate.sh
@@ -45,7 +45,9 @@ Sunset encrypts saved passwords with a key in your Keychain, and macOS remembers
 
 Or by hand: **Keychain Access › Certificate Assistant › Create a Certificate…**, named exactly **Sunset Local Signing**, with **Certificate Type** set to **Code Signing**.
 
-`scripts/bundle.sh` uses it automatically when it exists. The next launch asks one last time: choose **Always Allow**.
+`scripts/bundle.sh` uses it automatically when it exists.
+
+Saved passwords don't depend on the signature: their key lives in `Passwords.key`, next to the encrypted `Passwords.vault`, readable only by your user. Without a team signature the Keychain asks again after every build, even with this certificate, so Sunset doesn't keep the key there.
 
 ## Project layout
 

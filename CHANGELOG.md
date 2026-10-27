@@ -13,6 +13,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Fixed
 
+- macOS no longer asks for your Mac password to read saved passwords after every Sunset update. The key that encrypts them now lives in a file next to them that only your user can read, like Firefox without a primary password, instead of the Keychain (which ties it to each build when Sunset isn't signed by an Apple developer team). It's moved over from the Keychain once.
 - Auto picture-in-picture only kicks in for videos with sound, so muted autoplaying videos (the X timeline, GIFs) no longer pop out when switching tabs.
 - PDFs embedded as `blob:` in a frame (attachment previews in webmails) now display with a native viewer instead of staying blank, even when the page's security policy blocks WebKit's own viewer (`frame-ancestors`, `connect-src`), and frames no longer save those blobs to Downloads.
 - Sites behind HTTP authentication sign in automatically with the most recently saved password for that address, so the session survives restarting Sunset even with several saved accounts.

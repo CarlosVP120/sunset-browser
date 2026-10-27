@@ -62,11 +62,11 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# Firma. Una firma estable hace que macOS recuerde el permiso del Llavero (la clave de las
-# contraseñas): con firma local (ad hoc) cada compilación es "otra app" y pide la contraseña del Mac.
+# Firma. Una firma estable hace que macOS recuerde los permisos que guarda por firma (cámara,
+# micrófono, grabar la pantalla): con firma local (ad hoc) cada compilación es "otra app".
 # - SUNSET_SIGN_IDENTITY="Developer ID Application: …" o "Apple Development: …" para firmar con ella.
 # - Si no, se usa el certificado "Sunset Local Signing" del Llavero, si existe (ver CONTRIBUTING.md).
-# - Sin ninguno, firma ad hoc: todo funciona, pero el Llavero vuelve a preguntar en cada compilación.
+# - Sin ninguno, firma ad hoc: todo funciona, pero esos permisos se vuelven a pedir en cada compilación.
 # Los permisos de Resources/SunsetBrowser.entitlements (llaves de acceso) solo se añaden con
 # SUNSET_PROFILE=<perfil .provisionprofile con el permiso de navegador>: sin perfil, macOS no abre la app.
 IDENTITY="${SUNSET_SIGN_IDENTITY:-}"

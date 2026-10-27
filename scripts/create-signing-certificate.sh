@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Crea en tu Llavero el certificado "Sunset Local Signing" (autofirmado, solo para firmar código).
-# Con él, scripts/bundle.sh firma Sunset siempre igual y macOS deja de pedir la contraseña del Mac
-# para leer las contraseñas guardadas después de cada compilación (ver CONTRIBUTING.md).
+# Con él, scripts/bundle.sh firma Sunset siempre igual y macOS recuerda los permisos que guarda por
+# firma entre compilaciones (ver CONTRIBUTING.md).
 set -euo pipefail
 
 NAME="Sunset Local Signing"

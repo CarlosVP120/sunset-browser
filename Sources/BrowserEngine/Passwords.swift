@@ -73,8 +73,10 @@ public struct Credential: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// Las contraseñas de Sunset. Se guardan en un archivo cifrado (AES-GCM, 256 bits); la clave vive
-/// en el Llavero de macOS ("Sunset Browser Safe Storage"), como hace Chrome. No se cargan hasta
-/// que hacen falta (autorrellenar, importar o verlas en la Librería).
+/// en otro archivo junto a él, legible solo por tu usuario, como hace Firefox sin contraseña maestra.
+/// Antes estaba en el Llavero de macOS, pero sin firma de un equipo de Apple el Llavero ata la
+/// clave a cada compilación de Sunset y vuelve a pedir la contraseña del Mac tras cada
+/// actualización. No se cargan hasta que hacen falta (autorrellenar, importar o verlas en la Librería).
 @MainActor
 @Observable
 public final class PasswordVault {
@@ -84,7 +86,7 @@ public final class PasswordVault {
     @ObservationIgnored private let keyProvider: () throws -> SymmetricKey
 
     public init(fileURL: URL = PasswordVault.standardFileURL,
-                keyProvider: @escaping () throws -> SymmetricKey = { try PasswordVault.keychainKey() }) {
+                keyProvider: @escaping () throws -> SymmetricKey = { try PasswordVault.localKey() }) {
         self.fileURL = fileURL
         self.keyProvider = keyProvider
     }
@@ -151,16 +153,34 @@ public final class PasswordVault {
         try sealed.write(to: fileURL, options: [.atomic, .completeFileProtection])
     }
 
-    // MARK: Llavero
+    // MARK: Clave
+
+    nonisolated public static var standardKeyURL: URL {
+        standardFileURL.deletingLastPathComponent().appending(path: "Passwords.key")
+    }
+
+    /// La clave del archivo de contraseñas, en `Passwords.key` (permisos 0600). Se crea la primera
+    /// vez; si ya había contraseñas cifradas con la clave del Llavero, se trae de allí una sola vez.
+    nonisolated public static func localKey(at keyURL: URL = standardKeyURL, vaultURL: URL = standardFileURL,
+                                            legacyKey: () throws -> SymmetricKey = { try keychainKey() }) throws -> SymmetricKey {
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        if let data = try? Data(contentsOf: keyURL), data.count == 32 { return SymmetricKey(data: data) }
+        let key = FileManager.default.fileExists(atPath: vaultURL.path) ? try legacyKey() : SymmetricKey(size: .bits256)
+        try FileManager.default.createDirectory(at: keyURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard FileManager.default.createFile(atPath: keyURL.path, contents: key.withUnsafeBytes { Data($0) },
+                                             attributes: [.posixPermissions: 0o600]) else { throw VaultError.keyFile }
+        return key
+    }
+
+    // MARK: Llavero (versiones anteriores)
 
     nonisolated private static let keychainService = "Sunset Browser Safe Storage"
     nonisolated(unsafe) private static var cachedKey: SymmetricKey?
     nonisolated private static let keyLock = NSLock()
 
-    /// La clave del archivo, guardada en el Llavero. Se crea la primera vez.
+    /// La clave que usaban las versiones anteriores, guardada en el Llavero.
     nonisolated public static func keychainKey() throws -> SymmetricKey {
-        keyLock.lock()
-        defer { keyLock.unlock() }
         if let cachedKey { return cachedKey }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -195,5 +215,6 @@ public final class PasswordVault {
 
     public enum VaultError: Error {
         case keychain(OSStatus)
+        case keyFile
     }
 }
