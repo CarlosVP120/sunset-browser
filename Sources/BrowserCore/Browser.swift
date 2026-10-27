@@ -84,14 +84,13 @@ public final class Browser {
         didSet { defaults.set(sidebarWidth, forKey: "sidebarWidth") }
     }
     public static let sidebarWidthRange: ClosedRange<Double> = 180...440
-    /// Minutos sin usarse tras los que una pestaña se hiberna.
-    public var hibernateAfter: TimeInterval = 10 * 60
+    /// Con poca memoria (aviso de macOS), se hibernan las pestañas que llevan este tiempo sin usarse.
+    public var hibernateAfter: TimeInterval = 60 * 60
 
     @ObservationIgnored private let engine: WebEngine
     @ObservationIgnored private let store: SidebarStore?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var saveTask: Task<Void, Never>?
-    @ObservationIgnored private var hibernationTask: Task<Void, Never>?
     @ObservationIgnored private var memoryPressureSource: DispatchSourceMemoryPressure?
 
     private static let archiveLimit = 200
@@ -133,7 +132,6 @@ public final class Browser {
 
         if startsBackgroundWork {
             wakeNotifyingTabs()
-            startHibernationTimer()
             watchMemoryPressure()
         }
     }
@@ -590,19 +588,17 @@ public final class Browser {
         }
     }
 
-    private func startHibernationTimer() {
-        hibernationTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                self?.hibernateIdleTabs()
-            }
-        }
-    }
-
+    /// Como Arc (Chromium), las pestañas abiertas siguen vivas aunque no las mires: un webmail
+    /// sigue recibiendo correo y avisando, y al volver está como lo dejaste. Solo se hibernan
+    /// cuando macOS avisa de que falta memoria: primero las que llevan `hibernateAfter` sin usarse;
+    /// si la falta es grave, todas menos la visible. Nunca las que suenan o tienen notificaciones.
     private func watchMemoryPressure() {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
-        source.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.hibernateBackgroundTabs() }
+        source.setEventHandler { [weak self, weak source] in
+            let isCritical = source?.data.contains(.critical) == true
+            MainActor.assumeIsolated {
+                if isCritical { self?.hibernateBackgroundTabs() } else { self?.hibernateIdleTabs() }
+            }
         }
         source.resume()
         memoryPressureSource = source

@@ -11,6 +11,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 - ⌘Z reopens the last closed tab, like Arc (it still undoes typing in text fields). Reopened tabs, with ⌘Z or ⇧⌘T, go back to their exact spot in the sidebar with their history.
 - Warning for extensions that use Chrome-only APIs WebKit doesn't have (such as `chrome.debugger` or `chrome.sidePanel`): shown before installing and next to the extension in the extensions panel.
 
+### Changed
+
+- Tabs stay alive in the background like in Arc instead of going to sleep after 10 minutes, so webmails keep checking for mail and notifying from other tabs. Sunset only puts tabs to sleep when macOS runs low on memory: first the ones unused for an hour, and all but the visible one if memory gets critical. Tabs playing audio or from sites allowed to notify never sleep.
+
 ### Fixed
 
 - macOS no longer asks for your Mac password to read saved passwords after every Sunset update. The key that encrypts them now lives in a file next to them that only your user can read, like Firefox without a primary password, instead of the Keychain (which ties it to each build when Sunset isn't signed by an Apple developer team). It's moved over from the Keychain once.
