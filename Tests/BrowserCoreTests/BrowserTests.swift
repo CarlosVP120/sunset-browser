@@ -111,6 +111,44 @@ final class BrowserTests: XCTestCase {
         XCTAssertTrue(other.isHibernated)
     }
 
+    func testControlTabGoesToThePreviousTabAndCycles() {
+        let (browser, _) = makeBrowser()
+        let a = browser.openTab(URL(string: "https://a.com"))
+        let b = browser.openTab(URL(string: "https://b.com"))
+        let c = browser.openTab(URL(string: "https://c.com"))
+        a.lastActiveAt = Date(timeIntervalSinceNow: -30)
+        b.lastActiveAt = Date(timeIntervalSinceNow: -10)
+        c.lastActiveAt = Date(timeIntervalSinceNow: -20)
+        browser.select(a)
+
+        browser.advanceTabSwitcher()
+        XCTAssertEqual(browser.tabSwitcher?.tabIDs, [a.id, b.id, c.id])
+        XCTAssertEqual(browser.tabSwitcher?.index, 1)
+        browser.advanceTabSwitcher()
+        browser.advanceTabSwitcher()
+        XCTAssertEqual(browser.tabSwitcher?.index, 0)
+        browser.advanceTabSwitcher(backwards: true)
+        browser.commitTabSwitcher()
+
+        XCTAssertNil(browser.tabSwitcher)
+        XCTAssertEqual(browser.selectedTab?.id, c.id)
+    }
+
+    func testControlShiftTabStartsAtTheOldestTabAndEscapeKeepsTheCurrentOne() {
+        let (browser, _) = makeBrowser()
+        let a = browser.openTab(URL(string: "https://a.com"))
+        let b = browser.openTab(URL(string: "https://b.com"))
+        a.lastActiveAt = Date(timeIntervalSinceNow: -30)
+        browser.select(b)
+
+        browser.advanceTabSwitcher(backwards: true)
+        XCTAssertEqual(browser.tabSwitcher?.tabIDs[browser.tabSwitcher!.index], a.id)
+        browser.cancelTabSwitcher()
+
+        XCTAssertNil(browser.tabSwitcher)
+        XCTAssertEqual(browser.selectedTab?.id, b.id)
+    }
+
     func testWakingRestoresHistoryInsteadOfReloading() throws {
         let (browser, engine) = makeBrowser()
         let tab = browser.openTab(URL(string: "https://a.com"))

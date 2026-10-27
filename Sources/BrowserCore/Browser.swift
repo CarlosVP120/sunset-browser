@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import BrowserEngine
 
@@ -71,6 +71,11 @@ public final class Browser {
     public internal(set) var findRequest = FindRequest(direction: 0)
     /// El Command Bar abierto, si lo hay.
     public var commandBar: CommandBarMode?
+    /// El selector de pestañas de ⌃Tab, mientras se mantiene ⌃ (ver `TabSwitcher.swift`).
+    public internal(set) var tabSwitcher: TabSwitcher?
+    /// Vista previa de cada pestaña tal como la dejaste, para el selector de ⌃Tab.
+    public internal(set) var tabPreviews: [UUID: NSImage] = [:]
+    @ObservationIgnored var previewTask: Task<Void, Never>?
     /// Último cambio de zoom, para mostrar el indicador.
     public private(set) var zoomIndicator: ZoomIndicator?
     public let history: History
@@ -266,6 +271,7 @@ public final class Browser {
         let keepsTab = isFavorite(tab) || space.isPinned(tab)
 
         if keepsTab { tab.resetToPinned() } else { tab.hibernate() }
+        tabPreviews[tab.id] = nil
         if !keepsTab {
             space.remove(tab)
             recentlyClosed.append(ClosedTab(tab: tab, spaceID: space.id, index: index))
@@ -727,6 +733,7 @@ public final class Browser {
             current.page?.setPictureInPicture(false)
         }
         lastVisibleTabID = selectedID
+        scheduleVisiblePreview()
     }
 
     /// Reacciona a los cambios de medios de una pestaña.

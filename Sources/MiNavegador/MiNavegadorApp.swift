@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // ⌘Z reabre la última pestaña cerrada.
         UndoCloseTab.start(browser: browser)
+        TabSwitcherKeys.start(browser: browser)
 
         // Iconos de sitios con contraseña HTTP o sesión: se piden desde la página abierta.
         engine.openTabForServiceWorker = { [browser] url in browser.openTab(url).wake() }

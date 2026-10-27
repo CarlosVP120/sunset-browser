@@ -101,6 +101,12 @@ struct BrowserWindow: View {
                     .zIndex(30)
             }
 
+            if let switcher = browser.tabSwitcher, switcher.isVisible {
+                TabSwitcherView(browser: browser, switcher: switcher, area: contentFrame)
+                    .transition(.scale(scale: 0.97).combined(with: .opacity))
+                    .zIndex(11)
+            }
+
             if let mode = browser.commandBar {
                 CommandBarView(browser: browser, mode: mode, area: contentFrame)
                     .id(mode)
@@ -126,6 +132,7 @@ struct BrowserWindow: View {
         .animation(Theme.spring, value: browser.showsToolbar)
         .animation(Theme.spring, value: browser.showsLibrary)
         .animation(.spring(response: 0.24, dampingFraction: 0.88), value: browser.commandBar)
+        .animation(.easeOut(duration: 0.12), value: browser.tabSwitcher?.isVisible)
         .animation(.easeInOut(duration: 0.45), value: browser.welcome)
         .onChange(of: browser.showsSidebar) { isPeekingSidebar = false }
         .sheet(isPresented: Binding(

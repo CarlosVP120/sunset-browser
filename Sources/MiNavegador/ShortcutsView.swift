@@ -29,6 +29,7 @@ struct ShortcutsView: View {
         ("Pestañas", [
             ("Cerrar pestaña", "⌘W"),
             ("Reabrir pestaña cerrada", "⌘Z o ⇧⌘T"),
+            ("Pestañas recientes", "⌃Tab o ⌃⇧Tab"),
             ("Fijar o desfijar", "⌘D"),
             ("Pestaña siguiente / anterior", "⌥⌘↓ ⌥⌘↑"),
             ("Última pestaña usada", "⌃⇥"),

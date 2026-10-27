@@ -163,7 +163,7 @@ public struct CommandBarView: View {
     }
 }
 
-private struct PanelBackground: View {
+struct PanelBackground: View {
     let theme: SpaceTheme
 
     var body: some View {
