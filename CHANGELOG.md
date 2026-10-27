@@ -8,6 +8,10 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 - ⌃Tab switches between recent tabs like in Arc: hold ⌃ and press Tab (⇧ to go back) to move through the favorites and the current space's tabs, most recently used first, in a panel with a preview of each page; releasing ⌃ opens the highlighted one. A quick ⌃Tab jumps straight to the previous tab. Arrow keys, Return, Esc and the mouse also work in the panel.
 
+### Fixed
+
+- The sidebar media player only appears for tabs that have played sound (or gone into picture in picture), like in Arc, not for muted videos that play on their own, like on X.
+
 ## [0.1.4] - 2026-10-26
 
 ### Added

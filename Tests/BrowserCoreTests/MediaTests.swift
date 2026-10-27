@@ -118,4 +118,24 @@ final class MediaTests: XCTestCase {
         XCTAssertEqual(video.media, before)
         XCTAssertEqual(video.mediaPosition?.currentTime, 11)
     }
+
+    func testMutedAutoplayingVideosGetNoSidebarPlayer() throws {
+        let (browser, _) = makeBrowser()
+        let feed = browser.openTab(URL(string: "https://x.com/home"))
+        let page = try XCTUnwrap(feed.page as? FakePage)
+        page.onMediaChange?(MediaState(isPlaying: true, isMuted: true, hasVideo: true, isInPictureInPicture: false))
+        browser.openTab(URL(string: "https://a.com"))
+        XCTAssertTrue(browser.backgroundMediaTabs.isEmpty, "Un vídeo mudo que se reproduce solo no tiene reproductor")
+
+        // Si le das sonido, aparece; y sigue aunque luego lo silencies desde el reproductor.
+        page.onMediaChange?(MediaState(isPlaying: true, isMuted: false, hasVideo: true, isInPictureInPicture: false))
+        XCTAssertEqual(browser.backgroundMediaTabs.map(\.id), [feed.id])
+        page.onMediaChange?(MediaState(isPlaying: true, isMuted: true, hasVideo: true, isInPictureInPicture: false))
+        XCTAssertEqual(browser.backgroundMediaTabs.map(\.id), [feed.id])
+
+        // Otra página sin medios: se olvida.
+        page.onMediaChange?(nil)
+        page.onMediaChange?(MediaState(isPlaying: true, isMuted: true, hasVideo: true, isInPictureInPicture: false))
+        XCTAssertTrue(browser.backgroundMediaTabs.isEmpty)
+    }
 }

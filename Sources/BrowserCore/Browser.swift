@@ -24,6 +24,9 @@ public final class Browser {
     }
     /// Reproductores que el usuario quitó de la barra lateral (vuelven si suena otra vez).
     public internal(set) var dismissedMediaTabIDs: Set<BrowserTab.ID> = []
+    /// Pestañas cuyo audio/vídeo ha sonado (no silenciado) o pasado a PiP: solo esas tienen reproductor
+    /// en la barra lateral, como Arc (los vídeos mudos que se reproducen solos, como en X, no).
+    public internal(set) var audibleMediaTabIDs: Set<BrowserTab.ID> = []
     @ObservationIgnored private var lastVisibleTabID: BrowserTab.ID?
     /// Pestañas cerradas en esta sesión con su sitio, para reabrirlas donde estaban y con su
     /// historial (⌘Z, ⇧⌘T). La más reciente al final.
@@ -739,6 +742,11 @@ public final class Browser {
     /// Reacciona a los cambios de medios de una pestaña.
     private func mediaChanged(_ tab: BrowserTab, from old: MediaState?, to new: MediaState?) {
         if new?.isPlaying == true { dismissedMediaTabIDs.remove(tab.id) }
+        if let new, (new.isPlaying && !new.isMuted) || new.isInPictureInPicture {
+            audibleMediaTabIDs.insert(tab.id)
+        } else if new == nil {
+            audibleMediaTabIDs.remove(tab.id)
+        }
         // Botón "volver a la pestaña" del PiP: sale de PiP y sigue sonando.
         if old?.isInPictureInPicture == true, new?.isInPictureInPicture == false, new?.isPlaying == true,
            selectedTab?.id != tab.id {

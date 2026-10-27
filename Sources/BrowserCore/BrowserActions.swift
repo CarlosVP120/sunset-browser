@@ -21,7 +21,8 @@ extension Browser {
     public var backgroundMediaTabs: [BrowserTab] {
         let selectedID = selectedTab?.id
         return allTabs.filter { tab in
-            tab.id != selectedID && tab.media != nil && !dismissedMediaTabIDs.contains(tab.id)
+            tab.id != selectedID && tab.media != nil && audibleMediaTabIDs.contains(tab.id)
+                && !dismissedMediaTabIDs.contains(tab.id)
         }
     }
 
