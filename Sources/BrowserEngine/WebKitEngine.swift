@@ -14,6 +14,8 @@ public final class WebKitEngine: WebEngine {
     /// Contraseñas guardadas (importadas de otros navegadores) y su autorrelleno en las páginas.
     public let passwords = PasswordVault()
     private let autofill: PasswordAutofill
+    /// Notificaciones de las páginas (ver `WebNotifications`).
+    private let notifications = WebNotifications()
 
     public init() {
         autofill = PasswordAutofill(vault: passwords)
@@ -45,6 +47,7 @@ public final class WebKitEngine: WebEngine {
             WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         )
         autofill.install(in: configuration.userContentController)
+        notifications.install(in: configuration.userContentController)
 
         if #available(macOS 15.4, *) {
             let host = WebExtensionsHost()
@@ -54,6 +57,7 @@ public final class WebKitEngine: WebEngine {
         } else {
             extensionsHost = nil
         }
+        notifications.pages = { [weak self] in self?.pages.allObjects ?? [] }
     }
 
     /// "Version/27.0 Safari/605.1.15", con la versión de Safari instalada en el Mac.
@@ -81,7 +85,7 @@ public final class WebKitEngine: WebEngine {
         var extensionConfiguration: WKWebViewConfiguration?
         if #available(macOS 15.4, *), let url { extensionConfiguration = extensions.webViewConfiguration(for: url) }
         let page = WebKitPage(configuration: extensionConfiguration ?? configuration(for: profile), extensionsHost: extensionsHost,
-                              downloads: downloads, passwords: passwords)
+                              downloads: downloads, passwords: passwords, notifications: notifications)
         mediaRouter.register(page)
         pages.add(page)
         return page
@@ -127,9 +131,18 @@ public final class WebKitEngine: WebEngine {
                 WKUserScript(source: PDFEmbedScript.source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
             )
             autofill.install(in: profileConfiguration.userContentController)
+            notifications.install(in: profileConfiguration.userContentController)
         }
         profileConfigurations[profile] = profileConfiguration
         return profileConfiguration
+    }
+
+    public func notificationPermission(for url: URL) -> Bool? {
+        notifications.permission(for: url)
+    }
+
+    public func setNotificationPermission(_ allowed: Bool?, for url: URL) {
+        notifications.setPermission(allowed, for: url)
     }
 
     public func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async {
@@ -198,6 +211,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     private weak var downloads: DownloadManager?
     /// Para los sitios que piden contraseña por HTTP (ver `HTTPAuthentication.swift`).
     private(set) weak var passwords: PasswordVault?
+    private weak var notifications: WebNotifications?
     /// La contraseña recién escrita, hasta saber si el servidor la acepta.
     var pendingAuthentication: Credential?
     /// Visores nativos de PDF encima de marcos de la página (ver `PDFOverlay.swift`).
@@ -210,11 +224,12 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     var authFailures: [String: Int] = [:]
 
     init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?, downloads: DownloadManager?,
-         passwords: PasswordVault?) {
+         passwords: PasswordVault?, notifications: WebNotifications?) {
         webView = WKWebView(frame: .zero, configuration: configuration)
         self.extensionsHost = extensionsHost
         self.downloads = downloads
         self.passwords = passwords
+        self.notifications = notifications
         super.init()
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
@@ -405,6 +420,14 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     ) -> WKWebView? {
         if let url = navigationAction.request.url { onRequestNewTab?(url) }
         return nil
+    }
+
+    /// `prompt()` no muestra nada en Sunset; solo contesta la pregunta del permiso de notificaciones
+    /// (ver `NotificationScript`), según el origen real del marco.
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
+                 initiatedByFrame frame: WKFrameInfo) async -> String? {
+        guard prompt == NotificationScript.permissionQuery, frame.isMainFrame else { return nil }
+        return notifications?.permissionValue(for: frame.securityOrigin)
     }
 
     // MARK: Modo desarrollador

@@ -6,6 +6,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Added
 
+- Web notifications: sites like webmails can show macOS notifications, with sound, while their tab is open. Sunset asks once per site (Allow, Block or Not now) and remembers it; "Notificaciones de este sitio" in the Command Bar changes it. Clicking a notification brings you to its tab. Tabs of sites with notifications allowed don't hibernate and load when Sunset starts, so they keep notifying. Push notifications with the tab closed aren't supported.
 - ⌘Z reopens the last closed tab, like Arc (it still undoes typing in text fields). Reopened tabs, with ⌘Z or ⇧⌘T, go back to their exact spot in the sidebar with their history.
 - Warning for extensions that use Chrome-only APIs WebKit doesn't have (such as `chrome.debugger` or `chrome.sidePanel`): shown before installing and next to the extension in the extensions panel.
 

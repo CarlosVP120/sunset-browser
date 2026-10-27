@@ -127,10 +127,16 @@ public protocol WebEngine: AnyObject {
     func clearBrowsingData(_ kinds: BrowsingData, host: String?) async
     /// Añade cookies (sesiones traídas de otro navegador) al almacén de un perfil.
     func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async
+    /// Si el sitio de `url` puede mostrar notificaciones: sí, no, o aún no se ha decidido (`nil`).
+    func notificationPermission(for url: URL) -> Bool?
+    /// Permite, bloquea o vuelve a preguntar (`nil`) las notificaciones del sitio de `url`.
+    func setNotificationPermission(_ allowed: Bool?, for url: URL)
 }
 
 public extension WebEngine {
     func makePage(profile: UUID?, for url: URL?) -> WebPage { makePage(profile: profile) }
+    func notificationPermission(for url: URL) -> Bool? { nil }
+    func setNotificationPermission(_ allowed: Bool?, for url: URL) {}
 }
 
 /// Qué datos de navegación borrar.

@@ -50,6 +50,9 @@ final class FakeEngine: WebEngine {
     func clearBrowsingData(_ kinds: BrowsingData, host: String?) async { clearedData.append((kinds, host)) }
     var importedCookies: [HTTPCookie] = []
     func importCookies(_ cookies: [HTTPCookie], profile: UUID?) async { importedCookies += cookies }
+    /// Sitios con notificaciones permitidas.
+    var notifyingHosts: Set<String> = []
+    func notificationPermission(for url: URL) -> Bool? { url.host().map(notifyingHosts.contains) }
 
     func makePage(profile: UUID?) -> WebPage {
         profiles.append(profile)
@@ -76,6 +79,36 @@ final class BrowserTests: XCTestCase {
 
         XCTAssertTrue(old.isHibernated)
         XCTAssertFalse(visible.isHibernated)
+    }
+
+    func testTabsThatSendNotificationsStayAwake() {
+        let (browser, engine) = makeBrowser()
+        engine.notifyingHosts = ["mail.example.com"]
+        let mail = browser.openTab(URL(string: "https://mail.example.com/inbox"))
+        let other = browser.openTab(URL(string: "https://a.com"))
+        browser.openTab(URL(string: "https://b.com"))
+
+        browser.hibernateBackgroundTabs()
+
+        XCTAssertFalse(mail.isHibernated)
+        XCTAssertTrue(other.isHibernated)
+    }
+
+    func testLaunchLoadsOneTabPerSiteThatSendsNotifications() {
+        let (browser, engine) = makeBrowser()
+        engine.notifyingHosts = ["mail.example.com"]
+        let first = browser.openTab(URL(string: "https://mail.example.com/inbox"))
+        let second = browser.openTab(URL(string: "https://mail.example.com/sent"))
+        let other = browser.openTab(URL(string: "https://a.com"))
+        browser.openTab(URL(string: "https://b.com"))
+        engine.notifyingHosts = []
+        browser.hibernateBackgroundTabs()
+        engine.notifyingHosts = ["mail.example.com"]
+
+        browser.wakeNotifyingTabs()
+
+        XCTAssertEqual([first, second].filter { !$0.isHibernated }.count, 1)
+        XCTAssertTrue(other.isHibernated)
     }
 
     func testWakingRestoresHistoryInsteadOfReloading() throws {

@@ -8,7 +8,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
     // Página
     case copyURL, copyURLAsMarkdown, reload, forceReload, findInPage, printPage
     case capturePage, viewSource, pauseAllMedia, pictureInPicture, toggleAutoPictureInPicture
-    case zoomIn, zoomOut, resetZoom
+    case zoomIn, zoomOut, resetZoom, toggleSiteNotifications
     // Borrar y limpiar
     case clearSiteCookiesAndRefresh, clearSiteCacheAndRefresh
     case clearCache, clearCookies, clearHistory, clearBrowsingData
@@ -47,6 +47,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .zoomIn: "Acercar"
         case .zoomOut: "Alejar"
         case .resetZoom: "Tamaño real"
+        case .toggleSiteNotifications: "Notificaciones de este sitio: permitir o bloquear"
         case .clearSiteCookiesAndRefresh: "Borrar cookies de este sitio y recargar"
         case .clearSiteCacheAndRefresh: "Borrar caché de este sitio y recargar"
         case .clearCache: "Borrar caché"
@@ -93,6 +94,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .printPage: "printer"
         case .capturePage: "camera.viewfinder"
         case .toggleDeveloperMode: "hammer"
+        case .toggleSiteNotifications: "bell.badge"
         case .toggleConsole: "terminal"
         case .toggleNetwork: "globe"
         case .inspectElement: "scope"
@@ -183,6 +185,7 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .printPage: "print"
         case .capturePage: "capture screenshot captura pantalla"
         case .toggleDeveloperMode: "developer mode modo desarrollador dev localhost programar"
+        case .toggleSiteNotifications: "notifications notificaciones avisos alertas permitir bloquear permission"
         case .toggleConsole: "console consola logs errores devtools"
         case .toggleNetwork: "network panel red peticiones requests fetch xhr devtools"
         case .inspectElement: "inspect element inspeccionar elemento devtools"
@@ -239,7 +242,8 @@ public enum BrowserCommand: String, CaseIterable, Sendable {
         case .copyURL, .copyURLAsMarkdown, .reload, .forceReload, .findInPage, .printPage, .capturePage,
              .viewSource, .pauseAllMedia, .zoomIn, .zoomOut, .resetZoom,
              .clearSiteCookiesAndRefresh, .clearSiteCacheAndRefresh, .closeTab, .duplicateTab, .renameTab,
-             .togglePin, .addToFavorites, .toggleDeveloperMode, .openWebInspector, .inspectElement:
+             .togglePin, .addToFavorites, .toggleDeveloperMode, .openWebInspector, .inspectElement,
+             .toggleSiteNotifications:
             return tab?.url != nil && tab?.isHome == false
         case .toggleConsole, .toggleNetwork, .toggleResponsive:
             return tab?.isDeveloperMode == true
@@ -278,6 +282,7 @@ extension Browser {
         case .printPage: tab?.page?.printPage()
         case .capturePage: capturePage()
         case .toggleDeveloperMode: toggleDeveloperMode()
+        case .toggleSiteNotifications: toggleSiteNotifications()
         case .toggleConsole: toggleInspector(.console)
         case .toggleNetwork: toggleInspector(.network)
         case .inspectElement: toggleInspector(.pickElement)
@@ -412,6 +417,15 @@ extension Browser {
     }
 
     // MARK: - Página
+
+    /// Permite las notificaciones del sitio si no lo estaban, o las bloquea.
+    private func toggleSiteNotifications() {
+        guard let url = selectedTab?.url, let host = url.host() else { return }
+        let allow = notificationPermission(for: url) != true
+        setNotificationPermission(allow, for: url)
+        showToast(allow ? "Notificaciones permitidas en \(host)" : "Notificaciones bloqueadas en \(host)",
+                  symbol: allow ? "bell.badge" : "bell.slash")
+    }
 
     private func clearSiteData(_ kinds: BrowsingData, message: String) {
         guard let tab = selectedTab, let host = tab.url?.host() else { return }

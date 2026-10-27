@@ -132,6 +132,7 @@ public final class Browser {
         showSelectedTab()
 
         if startsBackgroundWork {
+            wakeNotifyingTabs()
             startHibernationTimer()
             watchMemoryPressure()
         }
@@ -567,8 +568,25 @@ public final class Browser {
 
     private func hibernate(where shouldHibernate: (BrowserTab) -> Bool) {
         let visibleID = selectedTab?.id
-        for tab in allTabs where tab.id != visibleID && !tab.isHibernated && !tab.hasActiveMedia && shouldHibernate(tab) {
+        for tab in allTabs where tab.id != visibleID && !tab.isHibernated && !tab.hasActiveMedia
+            && !sendsNotifications(tab) && shouldHibernate(tab) {
             tab.hibernate()
+        }
+    }
+
+    /// Los sitios con notificaciones permitidas (un webmail) no se hibernan: dormidos no avisan.
+    func sendsNotifications(_ tab: BrowserTab) -> Bool {
+        tab.url.map { engine.notificationPermission(for: $0) == true } ?? false
+    }
+
+    /// Al arrancar, carga una pestaña de cada sitio con notificaciones permitidas, para que avisen
+    /// sin tener que abrirlas antes (como hace Arc con las fijadas de webmail).
+    func wakeNotifyingTabs() {
+        var origins = Set<String>()
+        for tab in allTabs where sendsNotifications(tab) {
+            guard let url = tab.url, let host = url.host() else { continue }
+            let origin = "\(url.scheme ?? "")://\(host):\(url.port ?? 0)"
+            if origins.insert(origin).inserted, tab.isHibernated { tab.wake() }
         }
     }
 
@@ -652,6 +670,14 @@ public final class Browser {
 
     func removeProfileData(_ profile: UUID) {
         engine.removeProfileData(profile)
+    }
+
+    func notificationPermission(for url: URL) -> Bool? {
+        engine.notificationPermission(for: url)
+    }
+
+    func setNotificationPermission(_ allowed: Bool?, for url: URL) {
+        engine.setNotificationPermission(allowed, for: url)
     }
 
     func clearBrowsingData(_ kinds: BrowsingData, host: String? = nil) async {
