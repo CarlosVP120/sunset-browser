@@ -4,6 +4,8 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-26
+
 ### Added
 
 - Web notifications: sites like webmails can show macOS notifications, with sound, while their tab is open. Sunset asks once per site (Allow, Block or Not now) and remembers it; "Notificaciones de este sitio" in the Command Bar changes it. Clicking a notification brings you to its tab. Tabs of sites with notifications allowed don't hibernate and load when Sunset starts, so they keep notifying.
@@ -68,7 +70,8 @@ First public version.
 - First-launch onboarding that imports spaces, bookmarks, history, passwords and sessions from Arc, Chrome, Safari, Brave and Edge.
 - Universal (Apple silicon and Intel) DMG installer.
 
-[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.1...v0.1.3
 [0.1.1]: https://github.com/CarlosVP120/sunset-browser/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/CarlosVP120/sunset-browser/releases/tag/v0.1.0
