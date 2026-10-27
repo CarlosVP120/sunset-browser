@@ -22,6 +22,8 @@ final class WebNotifications: NSObject, WKScriptMessageHandlerWithReply, UNUserN
     /// Las peticiones de permiso en curso, una por origen (la hoja se pregunta una sola vez).
     private var prompts: [String: Task<Bool?, Never>] = [:]
     private var askedMacOS = false
+    /// Ya se avisó en esta sesión de que macOS bloquea las notificaciones de Sunset.
+    private var warnedMacOS = false
 
     /// El centro de notificaciones de macOS. Solo existe dentro de una app (no en los tests).
     private lazy var center: UNUserNotificationCenter? = {
@@ -36,6 +38,9 @@ final class WebNotifications: NSObject, WKScriptMessageHandlerWithReply, UNUserN
         sites = defaults.dictionary(forKey: Self.defaultsKey) as? [String: Bool] ?? [:]
         super.init()
         _ = center
+        // Si ya hay sitios con permiso y macOS aún no ha contestado (o se cerró su aviso sin
+        // responder), lo vuelve a preguntar al arrancar: si no, no llegaría ninguna notificación.
+        if sites.values.contains(true) { requestMacOSAuthorization() }
     }
 
     func install(in controller: WKUserContentController) {
@@ -114,6 +119,7 @@ final class WebNotifications: NSObject, WKScriptMessageHandlerWithReply, UNUserN
         case "show":
             guard sites[origin] == true else { return replyHandler(nil, nil) }
             replyHandler(show(body, origin: origin, from: page), nil)
+            if let window = page.webView.window { Task { await warnIfBlockedByMacOS(in: window) } }
         case "close":
             if let id = body["id"] as? String, shown[id] != nil {
                 shown[id] = nil
@@ -158,12 +164,14 @@ final class WebNotifications: NSObject, WKScriptMessageHandlerWithReply, UNUserN
 
     /// Si en Ajustes del Sistema están desactivadas las notificaciones de Sunset, el sitio puede
     /// tener permiso y aun así no llegaría nada: se avisa y se ofrece abrir los ajustes.
+    /// Una vez por sesión: si macOS deja de bloquearlas, no hace falta volver a avisar hasta reiniciar.
     private func warnIfBlockedByMacOS(in window: NSWindow) async {
-        guard let center else { return }
+        guard let center, !warnedMacOS else { return }
         askedMacOS = true
         // La primera vez, macOS pregunta con su propio aviso y esto espera la respuesta.
         guard (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) != true,
-              window.attachedSheet == nil else { return }
+              !warnedMacOS, window.attachedSheet == nil else { return }
+        warnedMacOS = true
         let alert = NSAlert()
         alert.messageText = "macOS tiene desactivadas las notificaciones de Sunset"
         alert.informativeText = "Actívalas en Ajustes del Sistema › Notificaciones › Sunset para que los sitios puedan avisarte."
