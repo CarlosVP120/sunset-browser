@@ -11,6 +11,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Fixed
 
+- Signing in with Google (and other sign-in windows that open on top of a site, like on claude.ai) works: the window stays linked to the site that opened it, so it can hand back the result and close itself, returning you to the site. It used to stay blank.
 - The sidebar media player only appears for tabs that have played sound (or gone into picture in picture), like in Arc, not for muted videos that play on their own, like on X.
 
 ## [0.1.4] - 2026-10-26

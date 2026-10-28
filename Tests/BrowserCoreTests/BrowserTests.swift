@@ -12,6 +12,7 @@ final class FakePage: WebPage {
     var onRequestActivate: (@MainActor () -> Void)?
     var onRequestClose: (@MainActor () -> Void)?
     var onRequestNewTab: (@MainActor (URL) -> Void)?
+    var onRequestPopup: (@MainActor (WebPage) -> Void)?
     private(set) var isActive = false
     private(set) var didClose = false
     private(set) var loadedURLs: [URL] = []
@@ -348,5 +349,24 @@ final class BrowserTests: XCTestCase {
         XCTAssertEqual(folder.name, "Coding")
         XCTAssertEqual(folder.tabs.map(\.title), ["Mi repo"])
         XCTAssertEqual(space.tabs.map(\.url?.host), ["apple.com"])
+    }
+
+    func testSignInPopupOpensInATabAndClosingItReturnsToTheSite() throws {
+        let (browser, _) = makeBrowser()
+        let site = browser.openTab(URL(string: "https://claude.ai/login"))
+        browser.openTab(URL(string: "https://a.com"))
+        browser.select(site)
+        let sitePage = try XCTUnwrap(site.page as? FakePage)
+
+        let popupPage = FakePage()
+        sitePage.onRequestPopup?(popupPage)
+        let popup = try XCTUnwrap(browser.selectedTab)
+        XCTAssertNotEqual(popup.id, site.id)
+        XCTAssertTrue(popup.page === popupPage, "Usa la página que creó WebKit, unida a la que la abrió")
+        XCTAssertTrue(popupPage.loadedURLs.isEmpty, "WebKit la carga por su cuenta")
+
+        // Google termina y la ventana se cierra sola: se vuelve al sitio.
+        popupPage.onRequestClose?()
+        XCTAssertEqual(browser.selectedTab?.id, site.id)
     }
 }

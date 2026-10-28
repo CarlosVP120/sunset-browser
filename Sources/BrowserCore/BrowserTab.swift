@@ -47,6 +47,9 @@ public final class BrowserTab: Identifiable {
     @ObservationIgnored var onRequestActivate: (() -> Void)?
     @ObservationIgnored var onRequestClose: (() -> Void)?
     @ObservationIgnored var onRequestNewTab: ((URL) -> Void)?
+    @ObservationIgnored var onRequestPopup: ((WebPage) -> Void)?
+    /// La pestaña que abrió esta como ventana emergente: al cerrarse, se vuelve a ella.
+    @ObservationIgnored var openerTabID: BrowserTab.ID?
     /// Avisa de cambios de medios: (antes, ahora).
     @ObservationIgnored var onMediaUpdate: ((MediaState?, MediaState?) -> Void)?
 
@@ -130,14 +133,7 @@ public final class BrowserTab: Identifiable {
         if let page { return page }
 
         let page = makePage(url)
-        page.onChange = { [weak self] snapshot in self?.apply(snapshot) }
-        page.onRequestActivate = { [weak self] in self?.onRequestActivate?() }
-        page.onRequestClose = { [weak self] in self?.onRequestClose?() }
-        page.onRequestNewTab = { [weak self] url in self?.onRequestNewTab?(url) }
-        page.onMediaChange = { [weak self] state in self?.updateMedia(state) }
-        if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
-        self.page = page
-        refreshDeveloperMode(force: true)
+        attach(page)
         if let savedInteractionState {
             page.restore(interactionState: savedInteractionState)
         } else if let url, !HomePage.isHome(url) {
@@ -146,6 +142,24 @@ public final class BrowserTab: Identifiable {
         }
         self.page = page
         return page
+    }
+
+    /// Usa una página ya creada (una ventana emergente, que WebKit carga por su cuenta).
+    func adopt(_ page: WebPage) {
+        lastActiveAt = Date()
+        attach(page)
+    }
+
+    private func attach(_ page: WebPage) {
+        page.onChange = { [weak self] snapshot in self?.apply(snapshot) }
+        page.onRequestActivate = { [weak self] in self?.onRequestActivate?() }
+        page.onRequestClose = { [weak self] in self?.onRequestClose?() }
+        page.onRequestNewTab = { [weak self] url in self?.onRequestNewTab?(url) }
+        page.onRequestPopup = { [weak self] popup in self?.onRequestPopup?(popup) }
+        page.onMediaChange = { [weak self] state in self?.updateMedia(state) }
+        if let host = url?.host(), let zoom = zoomForHost?(host) { page.zoom = zoom }
+        self.page = page
+        refreshDeveloperMode(force: true)
     }
 
     /// Enciende o apaga el modo desarrollador según el sitio actual.

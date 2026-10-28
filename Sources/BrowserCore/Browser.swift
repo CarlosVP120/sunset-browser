@@ -180,6 +180,22 @@ public final class Browser {
         return tab
     }
 
+    /// Una ventana emergente de la página (p. ej. "Iniciar sesión con Google"): una pestaña nueva
+    /// con la página que ya creó WebKit, unida a la que la abrió.
+    @discardableResult
+    func openPopup(_ page: WebPage, from opener: BrowserTab) -> BrowserTab {
+        let space = spaces.first { $0.allTabs.contains { $0.id == opener.id } } ?? activeSpace
+        let tab = makeTab(url: nil)
+        tab.openerTabID = opener.id
+        space.tabs.insert(tab, at: 0)
+        space.selectedTabID = tab.id
+        tab.adopt(page)
+        activeSpaceID = space.id
+        syncActivePage()
+        scheduleSave()
+        return tab
+    }
+
     /// Abre el Command Bar para una pestaña nueva (⌘T). La pestaña se crea al elegir destino.
     public func newTab() {
         commandBar = .newTab
@@ -289,8 +305,9 @@ public final class Browser {
         }
 
         if space.selectedTabID == tab.id {
-            // Pasa a la pestaña que quedó en el mismo sitio de la lista.
-            let next = space.tabs.isEmpty ? nil : space.tabs[min(index, space.tabs.count - 1)]
+            // Una emergente vuelve a la pestaña que la abrió; si no, a la que quedó en su sitio.
+            let opener = tab.openerTabID.flatMap { id in space.allTabs.first { $0.id == id } }
+            let next = opener ?? (space.tabs.isEmpty ? nil : space.tabs[min(index, space.tabs.count - 1)])
             space.selectedTabID = next?.id
             next?.wake()
             syncActivePage()
@@ -703,6 +720,9 @@ public final class Browser {
             if let self, let tab { close(tab) }
         }
         tab.onRequestNewTab = { [weak self] url in self?.openTab(url) }
+        tab.onRequestPopup = { [weak self, weak tab] page in
+            if let self, let tab { openPopup(page, from: tab) }
+        }
         tab.onMediaUpdate = { [weak self, weak tab] old, new in
             if let self, let tab { mediaChanged(tab, from: old, to: new) }
         }

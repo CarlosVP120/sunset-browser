@@ -94,10 +94,20 @@ public final class WebKitEngine: WebEngine {
         // WebKit solo sirve las páginas de una extensión en una vista creada con su configuración.
         var extensionConfiguration: WKWebViewConfiguration?
         if #available(macOS 15.4, *), let url { extensionConfiguration = extensions.webViewConfiguration(for: url) }
-        let page = WebKitPage(configuration: extensionConfiguration ?? configuration(for: profile), extensionsHost: extensionsHost,
-                              downloads: downloads, passwords: passwords, notifications: notifications)
+        return register(WebKitPage(configuration: extensionConfiguration ?? configuration(for: profile),
+                                   extensionsHost: extensionsHost, downloads: downloads, passwords: passwords,
+                                   notifications: notifications))
+    }
+
+    private func register(_ page: WebKitPage) -> WebKitPage {
         mediaRouter.register(page)
         pages.add(page)
+        // Las emergentes usan la configuración que da WebKit, la de la página que las abre.
+        page.makePopup = { [weak self] configuration in
+            guard let self else { return nil }
+            return register(WebKitPage(configuration: configuration, extensionsHost: extensionsHost, downloads: downloads,
+                                       passwords: passwords, notifications: notifications))
+        }
         return page
     }
 
@@ -210,6 +220,9 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
     var onRequestActivate: (@MainActor () -> Void)?
     var onRequestClose: (@MainActor () -> Void)?
     var onRequestNewTab: (@MainActor (URL) -> Void)?
+    var onRequestPopup: (@MainActor (WebPage) -> Void)?
+    /// Crea la página de una ventana emergente con la configuración que pide WebKit.
+    var makePopup: (@MainActor (WKWebViewConfiguration) -> WebKitPage?)?
     var view: NSView { webView }
     var interactionState: Any? { webView.interactionState }
 
@@ -423,15 +436,26 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     // MARK: WKUIDelegate
 
-    /// Enlaces con `target="_blank"` y `window.open`: se abren en una pestaña nueva.
+    /// Enlaces con `target="_blank"` y `window.open`: se abren en una pestaña nueva. Su vista se crea
+    /// aquí con la configuración de WebKit para que siga unida a la página (`window.opener`): así
+    /// el inicio de sesión con Google le devuelve el resultado a la página y se cierra solo.
     func webView(
         _ webView: WKWebView,
         createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        if let onRequestPopup, let popup = makePopup?(configuration) {
+            onRequestPopup(popup)
+            return popup.webView
+        }
         if let url = navigationAction.request.url { onRequestNewTab?(url) }
         return nil
+    }
+
+    /// La página se cierra sola (`window.close()`), como la ventana de Google al terminar.
+    func webViewDidClose(_ webView: WKWebView) {
+        onRequestClose?()
     }
 
     /// `prompt()` no muestra nada en Sunset; solo contesta la pregunta del permiso de notificaciones

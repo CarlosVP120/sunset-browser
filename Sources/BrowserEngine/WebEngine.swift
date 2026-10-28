@@ -47,6 +47,9 @@ public protocol WebPage: AnyObject {
     var onRequestClose: (@MainActor () -> Void)? { get set }
     /// Un enlace pide abrirse en otra pestaña (`target="_blank"`, `window.open`).
     var onRequestNewTab: (@MainActor (URL) -> Void)? { get set }
+    /// Una ventana emergente (`window.open`) ya creada y unida a esta página: el inicio de sesión
+    /// con Google o Apple le contesta a la página que la abrió y se cierra.
+    var onRequestPopup: (@MainActor (WebPage) -> Void)? { get set }
 
     /// Si es la pestaña visible del navegador.
     func setActive(_ isActive: Bool)
