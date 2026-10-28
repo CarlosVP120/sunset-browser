@@ -7,6 +7,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 ### Added
 
 - ⌃Tab switches between recent tabs like in Arc: hold ⌃ and press Tab (⇧ to go back) to move through the favorites and the current space's tabs, most recently used first, in a panel with a preview of each page; releasing ⌃ opens the highlighted one. A quick ⌃Tab jumps straight to the previous tab. Arrow keys, Return, Esc and the mouse also work in the panel.
+- Closed pinned tabs show × instead of − when you hover them, like in Arc: it removes the tab from your pinned tabs, and ⌘Z puts it back where it was, also inside its folder.
 
 ### Fixed
 

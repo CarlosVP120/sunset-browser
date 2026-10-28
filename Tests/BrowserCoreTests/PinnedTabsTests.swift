@@ -106,4 +106,29 @@ final class PinnedTabsTests: XCTestCase {
         XCTAssertEqual(restored.pinnedURL?.absoluteString, "https://notion.so/home")
         XCTAssertTrue(restored.isAwayFromPinned)
     }
+
+    func testRemovingAClosedPinnedTabCanBeUndoneInPlace() throws {
+        let browser = makeBrowser()
+        let mail = browser.openTab(URL(string: "https://mail.com"))
+        let docs = browser.openTab(URL(string: "https://docs.com"))
+        let figma = browser.openTab(URL(string: "https://figma.com"))
+        browser.togglePin(mail)
+        browser.togglePin(docs)
+        browser.togglePin(figma)
+        let folder = browser.newFolder()
+        browser.move(figma, to: folder)
+        let space = browser.activeSpace
+        let order = space.pinned.map(\.id)
+
+        browser.removePinned(docs)
+        browser.removePinned(figma)
+        XCTAssertFalse(space.isPinned(docs))
+        XCTAssertTrue(folder.tabs.isEmpty)
+
+        browser.reopenLastClosedTab()
+        XCTAssertEqual(folder.tabs.map(\.id), [figma.id], "Vuelve a su carpeta")
+        browser.reopenLastClosedTab()
+        XCTAssertEqual(space.pinned.map(\.id), order, "Vuelve a su sitio de las fijadas")
+        XCTAssertTrue(docs.isHibernated, "Vuelve cerrada, como se quitó")
+    }
 }

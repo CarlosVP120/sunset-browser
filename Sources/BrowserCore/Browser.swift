@@ -35,6 +35,9 @@ public final class Browser {
         let tab: BrowserTab
         let spaceID: Space.ID
         let index: Int
+        /// Dónde estaba: en las pestañas de hoy, en las fijadas o dentro de una carpeta fijada.
+        var place: Place = .tabs
+        enum Place { case tabs, pinned, folder(Folder.ID) }
     }
     /// Ventana con la lista de atajos de teclado.
     public var showsShortcuts = false
@@ -295,6 +298,34 @@ public final class Browser {
         scheduleSave()
     }
 
+    /// Como el × de Arc en una fijada cerrada: la quita de las fijadas (⌘Z la devuelve a su sitio).
+    public func removePinned(_ tab: BrowserTab) {
+        let space = activeSpace
+        let place: ClosedTab.Place
+        let index: Int
+        if let i = space.pinned.firstIndex(where: { $0.id == tab.id }) {
+            place = .pinned
+            index = i
+        } else if let folder = space.folders.first(where: { $0.tabs.contains { $0.id == tab.id } }) {
+            place = .folder(folder.id)
+            index = folder.tabs.firstIndex { $0.id == tab.id } ?? 0
+        } else {
+            return
+        }
+        tab.hibernate()
+        tabPreviews[tab.id] = nil
+        space.remove(tab)
+        recentlyClosed.append(ClosedTab(tab: tab, spaceID: space.id, index: index, place: place))
+        recentlyClosed = Array(recentlyClosed.suffix(Self.recentlyClosedLimit))
+        if space.selectedTabID == tab.id {
+            space.selectedTabID = space.tabs.first?.id
+            space.tabs.first?.wake()
+            syncActivePage()
+        }
+        refreshPinnedURLs()
+        scheduleSave()
+    }
+
     public func closeSelectedTab() {
         if let tab = selectedTab { close(tab) }
     }
@@ -316,9 +347,24 @@ public final class Browser {
             guard let space = spaces.first(where: { $0.id == closed.spaceID }),
                   tab(withID: closed.tab.id) == nil else { continue }
             archive.removeAll { $0.id == closed.tab.id }
-            space.tabs.insert(closed.tab, at: min(closed.index, space.tabs.count))
             activeSpaceID = space.id
-            select(closed.tab)
+            switch closed.place {
+            case .tabs:
+                space.tabs.insert(closed.tab, at: min(closed.index, space.tabs.count))
+                select(closed.tab)
+                return
+            case .folder(let folderID):
+                if let folder = space.folders.first(where: { $0.id == folderID }) {
+                    folder.tabs.insert(closed.tab, at: min(closed.index, folder.tabs.count))
+                } else {
+                    space.pinned.append(.tab(closed.tab))
+                }
+            case .pinned:
+                space.pinned.insert(.tab(closed.tab), at: min(closed.index, space.pinned.count))
+            }
+            // Una fijada vuelve cerrada, como se quitó.
+            refreshPinnedURLs()
+            scheduleSave()
             return
         }
         if let last = archive.first { restore(last) }

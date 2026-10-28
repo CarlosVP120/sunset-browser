@@ -241,6 +241,7 @@ final class TabCellView: NSView, NSTextFieldDelegate {
     private let slashButton = NSButton(title: "/", target: nil, action: nil)
     private let title = FadingLabel()
     private let subtitle = FadingLabel()
+    private var removesPinned = false
     private let closeButton = HoverButton(symbol: "xmark", size: 9.5, target: nil, action: nil)
     private let renameField = NSTextField()
     private var indent: CGFloat = 0
@@ -365,12 +366,14 @@ final class TabCellView: NSView, NSTextFieldDelegate {
         subtitle.field.textColor = colors.subtitle
         subtitle.trailingClear = isHovered ? 24 : 0
 
-        // Cerrar (o descargar, si es fijada).
-        closeButton.setSymbol(isPinned ? "minus" : "xmark", size: 9.5)
+        // Cerrar (o descargar, si es fijada). Una fijada ya cerrada muestra × para quitarla, como Arc.
+        removesPinned = isPinned && tab.isHibernated && !tab.isAwayFromPinned
+        closeButton.setSymbol(isPinned && !removesPinned ? "minus" : "xmark", size: 9.5)
         closeButton.contentTintColor = colors.title.withAlphaComponent(0.85)
         closeButton.hoverColor = colors.hover
-        closeButton.tooltipText = isPinned ? (tab.isAwayFromPinned ? "Volver a la dirección fijada" : "Descargar de memoria") : "Cerrar pestaña"
-        closeButton.tooltipShortcut = "⌘W"
+        closeButton.tooltipText = removesPinned ? "Quitar de fijadas"
+            : isPinned ? (tab.isAwayFromPinned ? "Volver a la dirección fijada" : "Descargar de memoria") : "Cerrar pestaña"
+        closeButton.tooltipShortcut = removesPinned ? nil : "⌘W"
         NSAnimationContext.runAnimationGroup { context in
             context.duration = isHovered ? 0.08 : 0.18
             closeButton.animator().alphaValue = isHovered && !isRenaming ? 1 : 0
@@ -437,7 +440,7 @@ final class TabCellView: NSView, NSTextFieldDelegate {
 
     @objc private func closeTab() {
         guard let tab else { return }
-        coordinator?.browser.close(tab)
+        if removesPinned { coordinator?.browser.removePinned(tab) } else { coordinator?.browser.close(tab) }
     }
 
     @objc private func returnToPinned() {
