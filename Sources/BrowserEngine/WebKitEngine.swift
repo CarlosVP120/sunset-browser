@@ -453,6 +453,25 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
         return nil
     }
 
+    /// `<input type="file">`: el selector de archivos de macOS (p. ej. la e.firma del SAT o adjuntar en
+    /// un correo), en una hoja sobre la ventana.
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.canChooseFiles = true
+        panel.resolvesAliases = true
+        let finish: (NSApplication.ModalResponse) -> Void = { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+        if let window = webView.window {
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(panel.runModal())
+        }
+    }
+
     /// La página se cierra sola (`window.close()`), como la ventana de Google al terminar.
     func webViewDidClose(_ webView: WKWebView) {
         onRequestClose?()
