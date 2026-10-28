@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Network
 
 /// Una suscripción push de un sitio (lo que devuelve `pushManager.subscribe()`).
@@ -45,6 +45,10 @@ final class WebPushService {
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var pathMonitor: NWPathMonitor?
+    private var wakeObserver: NSObjectProtocol?
+    /// Cada cuánto se comprueba la conexión, y cuánto se espera la respuesta (más cortos en los tests).
+    var pingInterval: Duration = .seconds(120)
+    var pongTimeout: Duration = .seconds(20)
     /// Altas pedidas que esperan la respuesta del servidor (por canal).
     private var pendingRegistrations: [String: CheckedContinuation<String, Error>] = [:]
     /// Esperando a que la conexión esté lista para mandar algo.
@@ -144,14 +148,29 @@ final class WebPushService {
         // Un ping cada pocos minutos mantiene viva la conexión (y detecta si se cayó sin avisar).
         pingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(240))
-                guard let socket = self?.socket else { return }
-                socket.sendPing { error in
-                    if error != nil { Task { @MainActor in self?.disconnected(socket) } }
-                }
+                guard let interval = self?.pingInterval else { return }
+                try? await Task.sleep(for: interval)
+                guard let self, self.socket === socket else { return }
+                await self.checkAlive(socket)
             }
         }
     }
+
+    /// Un ping que no contesta en 20 segundos es una conexión muerta: tras dormir el Mac o cambiar
+    /// de red, el WebSocket puede seguir "abierto" sin recibir nada ni dar error nunca.
+    private func checkAlive(_ socket: URLSessionWebSocketTask) async {
+        let answered = Flag()
+        socket.sendPing { [weak self] error in
+            Task { @MainActor in
+                answered.value = true
+                if error != nil { self?.disconnected(socket) }
+            }
+        }
+        try? await Task.sleep(for: pongTimeout)
+        if !answered.value { disconnected(socket) }
+    }
+
+    @MainActor private final class Flag { var value = false }
 
     private func send(_ message: [String: Any]) {
         guard let socket, let data = try? JSONSerialization.data(withJSONObject: message),
@@ -250,19 +269,31 @@ final class WebPushService {
         }
     }
 
-    /// Al volver la red (o despertar el Mac), reconecta enseguida en vez de esperar al reintento.
+    /// Al volver o cambiar la red, o al despertar el Mac, reconecta enseguida en vez de esperar al
+    /// reintento, o comprueba que la conexión que hay sigue viva.
     private func watchNetwork() {
         guard pathMonitor == nil else { return }
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
-            Task { @MainActor in
-                guard let self, !self.state.subscriptions.isEmpty else { return }
-                self.reconnectDelay = 1
-                self.connect()
-            }
+            Task { @MainActor in self?.networkMayHaveChanged() }
         }
         monitor.start(queue: .main)
         pathMonitor = monitor
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.networkMayHaveChanged() }
+        }
+    }
+
+    private func networkMayHaveChanged() {
+        guard !state.subscriptions.isEmpty else { return }
+        reconnectDelay = 1
+        if let socket {
+            Task { await checkAlive(socket) }
+        } else {
+            connect()
+        }
     }
 }
