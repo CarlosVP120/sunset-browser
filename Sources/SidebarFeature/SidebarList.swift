@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Observation
+import os
 import BrowserCore
 import BrowserUI
 
@@ -153,6 +154,7 @@ final class SidebarTableView: NSTableView {
 
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
+        coordinator?.showHiddenRows()
         coordinator?.setHoveredRow(row(at: convert(event.locationInWindow, from: nil)))
     }
 
@@ -382,6 +384,19 @@ final class SidebarListCoordinator: NSObject, NSTableViewDataSource, NSTableView
             hoveredRow = table.visibleRect.contains(point) ? table.row(at: point) : -1
         }
         reconfigureVisibleRows()
+        showHiddenRows()
+    }
+
+    private static let log = Logger(subsystem: "com.carlosvp.minavegador", category: "sidebar")
+
+    /// Sunset nunca oculta filas; solo AppKit, la de origen mientras se arrastra. A veces una se
+    /// quedaba oculta después (altura 0): "Nueva pestaña" sin texto o una pestaña desaparecida. Fuera
+    /// de un arrastre se vuelven a mostrar al cambiar la lista o al pasar el ratón por ella.
+    func showHiddenRows() {
+        guard !isNativeDragging, let table, !table.hiddenRowIndexes.isEmpty else { return }
+        let hidden = table.hiddenRowIndexes
+        Self.log.error("Filas ocultas tras un arrastre: \(hidden.map { self.rows.indices.contains($0) ? self.rows[$0].id : "?" })")
+        table.unhideRows(at: hidden, withAnimation: .effectFade)
     }
 
     private func height(of row: Row) -> CGFloat {

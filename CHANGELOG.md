@@ -12,6 +12,7 @@ All notable changes to Sunset Browser are documented here. The format follows [K
 
 ### Fixed
 
+- Rows in the sidebar no longer vanish after a drag: sometimes a tab, or the "New Tab" row (left as a lone "+" with no text), stayed hidden with no height until Sunset restarted. They now come back as soon as the list changes or you move the mouse over it.
 - Web Push notifications keep arriving after the Mac sleeps or changes network. The connection to the push server could die silently and stay that way until Sunset restarted, so sites like webmails stopped notifying (and their sound with them). Sunset now checks the connection every two minutes, on waking and on network changes, and reconnects when it doesn't answer.
 - Buttons that ask for a file (like "Buscar" for the e.firma on the SAT, or attaching to an email) open the macOS file picker. They used to do nothing.
 - Signing in with Google (and other sign-in windows that open on top of a site, like on claude.ai) works: the window stays linked to the site that opened it, so it can hand back the result and close itself, returning you to the site. It used to stay blank.
