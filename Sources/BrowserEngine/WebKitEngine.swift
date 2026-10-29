@@ -250,7 +250,7 @@ final class WebKitPage: NSObject, WebPage, WKUIDelegate, WKNavigationDelegate {
 
     init(configuration: WKWebViewConfiguration, extensionsHost: AnyObject?, downloads: DownloadManager?,
          passwords: PasswordVault?, notifications: WebNotifications?) {
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = GlidingWebView(frame: .zero, configuration: configuration)
         self.extensionsHost = extensionsHost
         self.downloads = downloads
         self.passwords = passwords
